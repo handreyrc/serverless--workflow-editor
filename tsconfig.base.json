@@ -8,8 +8,8 @@
     "allowJs": true,
 
     /* Module */
-    "module": "CommonJS", // Lorna: do we need this? Is it because we might be building packages that still expect CJS?
-    "moduleResolution": "Node",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "isolatedModules": true,
     
     /* Language and Environment */
