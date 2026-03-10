@@ -14,7 +14,9 @@
   },
   "type": "module",
   "scripts": {
-    "build:prod": "pnpm -r --stream build:prod",
+    "lint": "eslint ./",
+    "lint:fix": "eslint ./ --fix",
+    "build:prod": "pnpm lint && pnpm -r --stream build:prod",
     "build:dev": "pnpm -r --stream build:dev"
   },
   "devDependencies": {

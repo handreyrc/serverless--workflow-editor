@@ -16,8 +16,8 @@
   "main": "index.js",
   "packageManager": "pnpm@10.29.2",
     "scripts": {
-    "lint": "eslint . ",
-    "lint:fix": "eslint . --fix",
+    "lint": "eslint ./ ",
+    "lint:fix": "eslint ./ --fix",
     "build:prod": "pnpm lint"
   },
   "peerDependencies": {

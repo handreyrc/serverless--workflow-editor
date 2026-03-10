@@ -18,7 +18,7 @@
  */
 
 describe("MyComponent", () => {
-    it("Just a sample test", () => {
-        expect(true).toBeTruthy();
-    });
+  it("Just a sample test", () => {
+    expect(true).toBeTruthy();
+  });
 });
