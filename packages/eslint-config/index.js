@@ -17,7 +17,7 @@
  * under the License.
  */
 
-import { defineConfig } from "eslint/config";
+import { defineConfig, globalIgnores } from "eslint/config";
 import tseslint from "typescript-eslint";
 import reactPlugin from "eslint-plugin-react";
 import hooksPlugin from "eslint-plugin-react-hooks";
@@ -45,4 +45,5 @@ export default defineConfig([
     },
     files: ["**/*.{ts,mts,tsx}"],
   },
+  globalIgnores(["**/dist/", "**/dist-storybook/", "**/node-modules/"]),
 ]);
