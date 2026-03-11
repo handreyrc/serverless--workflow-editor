@@ -16,8 +16,8 @@
   "packageManager": "pnpm@10.29.2",
   "type": "module",
   "peerDependencies": {
-    "eslint": ">=9.0.0",
-    "prettier": ">=3.0.0"
+    "eslint": "^9.39.4",
+    "prettier": "^3.8.1"
   },
   "devDependencies": {
     "eslint": "^9.39.4",

@@ -24,7 +24,6 @@
 **/dist/
 **/dist-storybook/
 *.log
-pnpm-lock.yaml
 
 # Eclipse, Netbeans and IntelliJ files
 **/nbproject
