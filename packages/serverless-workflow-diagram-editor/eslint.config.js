@@ -23,5 +23,5 @@ export default [
   ...sharedConfig,
   {
     // Add app-specific overrides here
-  }
+  },
 ];
