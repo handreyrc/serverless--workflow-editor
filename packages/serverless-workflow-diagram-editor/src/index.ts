@@ -14,17 +14,4 @@
  * limitations under the License.
  */
 
-import type { Preview } from "@storybook/react-webpack5";
-
-const preview: Preview = {
-  parameters: {
-    controls: {
-      matchers: {
-        color: /(background|color)$/i,
-        date: /Date$/i,
-      },
-    },
-  },
-};
-
-export default preview;
+export * from "./diagram-editor";

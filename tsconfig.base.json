@@ -2,7 +2,6 @@
   "compilerOptions": {/* Emit */
     "baseUrl": ".",
     "declaration": true,
-    "emitDeclarationOnly": true,
     "declarationMap": true,
     "sourceMap": true,
     "allowJs": true,
