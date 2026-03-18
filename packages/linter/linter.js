@@ -17,7 +17,7 @@
 import { existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 
 const configFilename = ".oxlintrc.json";
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -30,10 +30,9 @@ const configPath = join(__dirname, configFilename);
 const selectedConfig = existsSync(localConfigPath) ? localConfigPath : configPath;
 
 const args = ["--config", selectedConfig, ...process.argv.slice(2)];
-const command = [oxlintPath, ...args].join(" ");
 
 try {
-  execSync(command, {
+  execFileSync(oxlintPath, args, {
     stdio: "inherit",
     cwd: process.cwd(),
   });
