@@ -17,7 +17,7 @@
 import { existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { execFileSync } from "child_process";
+import { execSync } from "child_process";
 
 const configFilename = ".oxlintrc.json";
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -30,14 +30,16 @@ const configPath = join(__dirname, configFilename);
 const selectedConfig = existsSync(localConfigPath) ? localConfigPath : configPath;
 
 const args = ["--config", selectedConfig, ...process.argv.slice(2)];
+const command = [oxlintPath, ...args].join(" ");
 
 try {
-  execFileSync(oxlintPath, args, {
+  execSync(command, {
     stdio: "inherit",
     cwd: process.cwd(),
   });
-} catch {
-  console.info("[Linter] Error.");
+} catch (err) {
+  const message = err instanceof Error && err.message ? err.message : err;
+  console.error("[Linter] Error.\n", message);
   process.exit(1);
 }
 console.info("[Linter] Done.");

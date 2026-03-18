@@ -37,8 +37,9 @@ try {
     stdio: "inherit",
     cwd: process.cwd(),
   });
-} catch {
-  console.info("[Formatter] Error.");
+} catch (err) {
+  const message = err instanceof Error && err.message ? err.message : err;
+  console.error("[Fomatter] Error.\n", message);
   process.exit(1);
 }
 console.info("[Formatter] Done.");
