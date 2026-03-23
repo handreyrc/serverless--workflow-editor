@@ -14,16 +14,16 @@
   },
   "type": "module",
   "scripts": {
-    "format": "formatter",
-    "format:check": "formatter --check",
+    "format": "oxfmt --config .oxfmtrc.json",
+    "format:check": "oxfmt --config .oxfmtrc.json --check",
     "build:prod": "pnpm -r --stream --if-present build:prod",
     "build:dev": "pnpm -r --stream --if-present build:dev",
     "prepare": "husky"
   },
   "devDependencies": {
-    "@serverlessworkflow-toolings/linter": "workspace:*",
     "husky": "catalog:",
     "lint-staged": "catalog:",
+    "oxfmt": "catalog:",
     "typescript": "catalog:"
   },
   "lint-staged": {
