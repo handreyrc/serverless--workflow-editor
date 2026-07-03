@@ -16,34 +16,55 @@
 
 # core
 
-Core package agnostic from the rendering library and its types.
+Core business logic layer that is agnostic to rendering libraries and platform-specific APIs. This layer provides the foundation for the diagram editor while maintaining vendor neutrality and embeddability.
 
-## Modules
+## Purpose
 
-### workflowSdk.ts
+The core layer serves as the abstraction boundary between the Serverless Workflow SDK and the editor's UI layer. It handles workflow parsing, validation, graph manipulation, and data transformation without any dependencies on React Flow or other rendering frameworks.
 
-Abstraction layer over the `@serverlessworkflow/sdk`. Provides functions to parse, validate, and work with workflow definitions without exposing SDK internals to the rest of the editor.
+## Functional Areas
 
-### graph.ts
+### SDK Abstraction
 
-Utility functions for working with the SDK's `FlatGraph` type. Provides `getNodesByType()` to filter nodes by type and `fixNodesConnections()` to normalize graph edges by redirecting entry/exit node connections to their parent nodes.
+**Critical constraint**: This is the only layer allowed to directly import from `@serverlessworkflow/sdk`. All SDK interactions must go through this abstraction to keep the rest of the editor decoupled from SDK implementation details.
 
-### taskSubType.ts
+Responsibilities:
 
-Utilities for extracting task subtypes from task definitions. Provides functions like `getRunSubType()`, `getListenSubType()`, and `getCallSubType()` to determine the specific variant of each task type.
+- Parse and validate workflow definitions (YAML/JSON)
+- Provide type-safe access to workflow models
+- Convert workflow definitions to graph representations
+- Shield the rest of the editor from SDK internals and breaking changes
 
-### taskDetails.ts
+### Graph Processing
 
-Flattens task properties into display-ready detail fields. Converts nested task objects into a flat array of `DetailField` objects (text, array, or object) for rendering in the UI, separating task-specific fields from inherited base fields.
+Utilities for working with workflow graphs as data structures:
 
-### elkjs.ts
+- Normalize graph connections and edges
+- Fix entry/exit node connections by redirecting them to parent containers
+- Provide graph traversal and manipulation operations
 
-Wrapper for the ELK (Eclipse Layout Kernel) graph layout library. Provides `processElkLayout()` function with abort signal support for cancelable layout calculations.
+### Layout Computation
 
-### mermaidExport.ts
+Integration with graph layout algorithms:
 
-Converts workflow models to Mermaid diagram code. Thin wrapper over the SDK's `convertToMermaidCode()` function for exporting workflows to Mermaid format.
+- Wrap layout engines with editor-specific interfaces
+- Provide cancelable layout calculations with abort signal support
+- Transform layout results into consumable formats
+- Handle layout engine lifecycle and error cases
 
-### validationErrors.ts
+### Export Capabilities
 
-Filters and categorizes validation errors from the SDK. Separates node-specific errors from workflow-level errors, removes noise (redundant errors for invalid tasks), and provides utilities to map errors to their owning nodes.
+Convert workflow models to other formats:
+
+- Generate diagram code in external formats (e.g., Mermaid)
+- Provide thin wrappers over SDK export functions
+- Enable integration with external diagramming tools
+
+### Validation & Error Handling
+
+Process and categorize validation errors:
+
+- Filter SDK validation errors for relevance
+- Map errors to specific nodes in the graph
+- Separate node-level errors from workflow-level errors
+- Provide structured error data for UI consumption

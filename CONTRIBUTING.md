@@ -116,15 +116,6 @@ If you're unsure whether your use of agents/LLMs is acceptable — ask! We're ha
 
 > This isn't about banning AI — it's about keeping this project collaborative, human-driven, and focused on quality.
 
-## Git Hooks
-
-The project uses [Husky](https://typicode.github.io/husky/) to manage Git hooks automatically after `pnpm install`:
-
-- **`pre-commit`**: Runs `lint-staged` to automatically format staged files matching `*.{ts,tsx,js,jsx,json,md,yml,yaml}` using oxfmt.
-- **`commit-msg`**: Validates that commits include a DCO `Signed-off-by` line. Commits without sign-off will be rejected.
-
-These hooks help maintain code quality and ensure compliance with project requirements.
-
 ## Testing
 
 The project uses multiple testing strategies:

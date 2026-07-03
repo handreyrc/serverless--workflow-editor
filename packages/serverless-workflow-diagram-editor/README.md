@@ -114,7 +114,7 @@ This package uses [shadcn/ui](https://ui.shadcn.com/) for UI primitives. Configu
 ### Key Settings
 
 - **Style**: `new-york` — compact spacing and sharper corners
-- **Tailwind prefix**: `dec:` — all generated classes prefixed to avoid conflicts
+- **Tailwind prefix**: `dec:` — all generated classes prefixed to avoid conflicts with host applications
 - **CSS target**: [`src/components/ui/shadcn.css`](src/components/ui/shadcn.css) — CSS variables
 - **Path aliases**: `@/components`, `@/lib`, `@/hooks` — resolved via tsconfig
 - **Icon library**: `lucide-react`
