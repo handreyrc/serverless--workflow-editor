@@ -26,7 +26,7 @@ The core layer serves as the abstraction boundary between the Serverless Workflo
 
 ### SDK Abstraction
 
-**Critical constraint**: This is the only layer allowed to directly import from `@serverlessworkflow/sdk`. All SDK interactions must go through this abstraction to keep the rest of the editor decoupled from SDK implementation details.
+**Critical constraint**: This is the only layer allowed to directly import from `@serverlessworkflow/sdk`. All SDK interactions must go through this abstraction to keep the rest of the editor decoupled from SDK implementation details. Despite of that, type-only imports may still be used elsewhere when needed.
 
 Responsibilities:
 

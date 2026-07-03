@@ -16,8 +16,8 @@
 
 # react-flow
 
-This directory contains all React Flow (`@xyflow/react`) library-specific code. **All React Flow specifics must be contained within this directory** to maintain library isolation and ensure the editor remains embeddable across different platforms.
-Note: The only exception is the `ReactFlowProvider`, needed in a top-level component to allow access to React Flow internal state.
+This directory contains the React Flow (`@xyflow/react`) rendering implementation (nodes/edges/diagram). Keep React Flow runtime logic here to maintain library isolation and ensure the editor remains embeddable across different platforms.
+Note: Some top-level components may import `ReactFlowProvider`, and other layers may import `@xyflow/react` types when needed.
 
 ## Architecture Constraint
 
