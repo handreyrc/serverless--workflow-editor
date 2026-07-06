@@ -207,6 +207,9 @@ This project uses [Changesets](https://github.com/changesets/changesets) for ver
 pnpm changeset
 
 # Or compare against upstream explicitly
+# add upstream remote, if you don't have it already
+git remote add upstream https://github.com/serverlessworkflow/editor.git
+
 pnpm changeset --since upstream/main
 ```
 
