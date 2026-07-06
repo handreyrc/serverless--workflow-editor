@@ -84,7 +84,7 @@ Choose the user's locale either manually or through automatic detection:
 import { detectLocale } from "@serverlessworkflow/i18n";
 import { dictionaries } from "./i18n/locales";
 
-const supportedLocales = Object.keys(dictionaries) as const;
+const supportedLocales = Object.keys(dictionaries) as Array<keyof typeof dictionaries>;
 
 // Auto-detect with fallback to "en"
 const locale = detectLocale(supportedLocales);
