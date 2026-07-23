@@ -59,23 +59,29 @@ describe("autoLayout", () => {
       expect(elkGraph.id).toBe("root");
       expect(elkGraph.layoutOptions).toEqual(ROOT_LAYOUT_OPTIONS);
       expect(elkGraph.children).toHaveLength(2);
+      // Leaf nodes now get explicit SOUTH/NORTH ports
       expect(elkGraph.children?.[0]).toEqual({
         id: "node1",
         width: 150,
         height: 50,
         children: [],
+        ports: [{ id: "node1_out", layoutOptions: { "port.side": "SOUTH", "port.index": "0" } }],
+        layoutOptions: { "elk.portConstraints": "FIXED_ORDER" },
       });
       expect(elkGraph.children?.[1]).toEqual({
         id: "node2",
         width: 200,
         height: 60,
         children: [],
+        ports: [{ id: "node2_in", layoutOptions: { "port.side": "NORTH", "port.index": "0" } }],
+        layoutOptions: { "elk.portConstraints": "FIXED_ORDER" },
       });
       expect(elkGraph.edges).toHaveLength(1);
+      // Edges reference the explicit port IDs
       expect(elkGraph.edges?.[0]).toEqual({
         id: "edge1",
-        sources: ["node1"],
-        targets: ["node2"],
+        sources: ["node1_out"],
+        targets: ["node2_in"],
       });
     });
 
@@ -159,15 +165,16 @@ describe("autoLayout", () => {
       const elkGraph = buildElkGraphFromReactFlowGraph(reactFlowGraph);
 
       expect(elkGraph.edges).toHaveLength(2);
+      // Both nodes are source and target — each gets SOUTH+NORTH ports
       expect(elkGraph.edges?.[0]).toEqual({
         id: "edge1",
-        sources: ["node1"],
-        targets: ["node2"],
+        sources: ["node1_out"],
+        targets: ["node2_in"],
       });
       expect(elkGraph.edges?.[1]).toEqual({
         id: "edge2",
-        sources: ["node2"],
-        targets: ["node1"],
+        sources: ["node2_out"],
+        targets: ["node1_in"],
       });
     });
 
@@ -220,9 +227,10 @@ describe("autoLayout", () => {
       expect(elkGraph.children?.[0].width).toBeUndefined();
       expect(elkGraph.children?.[0].height).toBeUndefined();
 
-      // Child node should have fixed dimensions and no layout options
+      // Child node should have fixed dimensions; no edges so no ports/layoutOptions override
       expect(elkGraph.children?.[0].children?.[0].width).toBe(100);
       expect(elkGraph.children?.[0].children?.[0].height).toBe(50);
+      expect(elkGraph.children?.[0].children?.[0].ports).toBeUndefined();
       expect(elkGraph.children?.[0].children?.[0].layoutOptions).toBeUndefined();
     });
 
@@ -294,84 +302,157 @@ describe("autoLayout", () => {
       expect(elkGraph.children?.[0].children?.[0].edges).toBeUndefined();
     });
 
-    it("adds ports to parent nodes with outgoing edges", () => {
-      const reactFlowGraph: ReactFlowGraph = {
-        nodes: [
-          { id: "parent", position: { x: 0, y: 0 }, data: {} },
-          { id: "child", position: { x: 0, y: 0 }, data: {}, parentId: "parent" },
-          { id: "node2", position: { x: 0, y: 0 }, data: {} },
-        ] as Node[],
-        edges: [{ id: "edge1", source: "parent", target: "node2", data: {} }] as Edge[],
-      };
+    describe("port assignment", () => {
+      const SOUTH = { "port.side": "SOUTH", "port.index": "0" };
+      const NORTH = { "port.side": "NORTH", "port.index": "0" };
 
-      const elkGraph = buildElkGraphFromReactFlowGraph(reactFlowGraph);
-
-      // Parent node should have a port since it has an outgoing edge
-      expect(elkGraph.children?.[0].ports).toBeDefined();
-      expect(elkGraph.children?.[0].ports).toHaveLength(1);
-      expect(elkGraph.children?.[0].ports?.[0]).toEqual({
-        id: "parent_out",
-        layoutOptions: {
-          "port.side": "SOUTH",
-          "port.index": "0",
+      it.each([
+        {
+          description: "leaf source-only → SOUTH port",
+          edges: [{ id: "e", source: "a", target: "b" }],
+          nodeId: "a",
+          expectedPorts: [{ id: "a_out", layoutOptions: SOUTH }],
         },
+        {
+          description: "leaf target-only → NORTH port",
+          edges: [{ id: "e", source: "a", target: "b" }],
+          nodeId: "b",
+          expectedPorts: [{ id: "b_in", layoutOptions: NORTH }],
+        },
+        {
+          description: "leaf source-and-target → SOUTH + NORTH ports",
+          edges: [
+            { id: "e1", source: "a", target: "b" },
+            { id: "e2", source: "b", target: "a" },
+          ],
+          nodeId: "a",
+          expectedPorts: [
+            { id: "a_out", layoutOptions: SOUTH },
+            { id: "a_in", layoutOptions: NORTH },
+          ],
+        },
+      ])("$description", ({ edges, nodeId, expectedPorts }) => {
+        const nodeIds = [...new Set(edges.flatMap((e) => [e.source, e.target]))];
+        const graph: ReactFlowGraph = {
+          nodes: nodeIds.map((id) => ({ id, position: { x: 0, y: 0 }, data: {} })) as Node[],
+          edges: edges.map((e) => ({ ...e, data: {} })) as Edge[],
+        };
+
+        const elkGraph = buildElkGraphFromReactFlowGraph(graph);
+        const elkNode = elkGraph.children?.find((n) => n.id === nodeId);
+
+        expect(elkNode?.ports).toEqual(expectedPorts);
+      });
+
+      it("leaf node not in any edge → no ports, no FIXED_ORDER constraint", () => {
+        const graph: ReactFlowGraph = {
+          nodes: [{ id: "isolated", position: { x: 0, y: 0 }, data: {} }] as Node[],
+          edges: [],
+        };
+
+        const elkGraph = buildElkGraphFromReactFlowGraph(graph);
+        const elkNode = elkGraph.children?.[0];
+
+        expect(elkNode?.ports).toBeUndefined();
+        expect(elkNode?.layoutOptions).toBeUndefined();
+      });
+
+      it("leaf node with edges gets FIXED_ORDER port constraint", () => {
+        const graph: ReactFlowGraph = {
+          nodes: [
+            { id: "a", position: { x: 0, y: 0 }, data: {} },
+            { id: "b", position: { x: 0, y: 0 }, data: {} },
+          ] as Node[],
+          edges: [{ id: "e", source: "a", target: "b", data: {} }] as Edge[],
+        };
+
+        const elkGraph = buildElkGraphFromReactFlowGraph(graph);
+
+        expect(elkGraph.children?.find((n) => n.id === "a")?.layoutOptions).toEqual({
+          "elk.portConstraints": "FIXED_ORDER",
+        });
+        expect(elkGraph.children?.find((n) => n.id === "b")?.layoutOptions).toEqual({
+          "elk.portConstraints": "FIXED_ORDER",
+        });
+      });
+
+      it("parent source → single shared SOUTH port (merges multiple outgoing edges)", () => {
+        const graph: ReactFlowGraph = {
+          nodes: [
+            { id: "parent", position: { x: 0, y: 0 }, data: {} },
+            { id: "child", position: { x: 0, y: 0 }, data: {}, parentId: "parent" },
+            { id: "target1", position: { x: 0, y: 0 }, data: {} },
+            { id: "target2", position: { x: 0, y: 0 }, data: {} },
+          ] as Node[],
+          edges: [
+            { id: "e1", source: "parent", target: "target1", data: {} },
+            { id: "e2", source: "parent", target: "target2", data: {} },
+          ] as Edge[],
+        };
+
+        const elkGraph = buildElkGraphFromReactFlowGraph(graph);
+        const parentNode = elkGraph.children?.find((n) => n.id === "parent");
+
+        // One shared _out port regardless of how many outgoing edges
+        expect(parentNode?.ports).toEqual([{ id: "parent_out", layoutOptions: SOUTH }]);
+      });
+
+      it("parent node without outgoing edges → no ports", () => {
+        const graph: ReactFlowGraph = {
+          nodes: [
+            { id: "parent", position: { x: 0, y: 0 }, data: {} },
+            { id: "child", position: { x: 0, y: 0 }, data: {}, parentId: "parent" },
+          ] as Node[],
+          edges: [],
+        };
+
+        const elkGraph = buildElkGraphFromReactFlowGraph(graph);
+        const parentNode = elkGraph.children?.[0];
+
+        expect(parentNode?.ports).toBeUndefined();
       });
     });
 
-    it("does not add ports to leaf nodes with outgoing edges", () => {
-      const reactFlowGraph: ReactFlowGraph = {
-        nodes: [
-          { id: "node1", position: { x: 0, y: 0 }, data: {} },
-          { id: "node2", position: { x: 0, y: 0 }, data: {} },
-        ] as Node[],
-        edges: [{ id: "edge1", source: "node1", target: "node2", data: {} }] as Edge[],
-      };
+    describe("edge port ID resolution", () => {
+      it.each([
+        {
+          description: "leaf source and leaf target both use port IDs",
+          nodes: [
+            { id: "a", position: { x: 0, y: 0 }, data: {} },
+            { id: "b", position: { x: 0, y: 0 }, data: {} },
+          ],
+          edges: [{ id: "e", source: "a", target: "b", data: {} }],
+          expectedEdge: { id: "e", sources: ["a_out"], targets: ["b_in"] },
+        },
+        {
+          description: "parent source uses port ID; leaf target uses port ID",
+          nodes: [
+            { id: "parent", position: { x: 0, y: 0 }, data: {} },
+            { id: "child", position: { x: 0, y: 0 }, data: {}, parentId: "parent" },
+            { id: "leaf", position: { x: 0, y: 0 }, data: {} },
+          ],
+          edges: [{ id: "e", source: "parent", target: "leaf", data: {} }],
+          expectedEdge: { id: "e", sources: ["parent_out"], targets: ["leaf_in"] },
+        },
+        {
+          description: "back-edge (cycle) between leaf nodes uses port IDs on both ends",
+          nodes: [
+            { id: "a", position: { x: 0, y: 0 }, data: {} },
+            { id: "b", position: { x: 0, y: 0 }, data: {} },
+          ],
+          edges: [
+            { id: "e1", source: "a", target: "b", data: {} },
+            { id: "e2", source: "b", target: "a", data: {} },
+          ],
+          expectedEdge: { id: "e2", sources: ["b_out"], targets: ["a_in"] },
+        },
+      ])("$description", ({ nodes, edges, expectedEdge }) => {
+        const graph: ReactFlowGraph = { nodes: nodes as Node[], edges: edges as Edge[] };
 
-      const elkGraph = buildElkGraphFromReactFlowGraph(reactFlowGraph);
+        const elkGraph = buildElkGraphFromReactFlowGraph(graph);
+        const edge = elkGraph.edges?.find((e) => e.id === expectedEdge.id);
 
-      // Leaf nodes should not have ports
-      expect(elkGraph.children?.[0].ports).toBeUndefined();
-      expect(elkGraph.children?.[1].ports).toBeUndefined();
-    });
-
-    it("uses port ID in edge sources for parent nodes", () => {
-      const reactFlowGraph: ReactFlowGraph = {
-        nodes: [
-          { id: "parent", position: { x: 0, y: 0 }, data: {} },
-          { id: "child", position: { x: 0, y: 0 }, data: {}, parentId: "parent" },
-          { id: "node2", position: { x: 0, y: 0 }, data: {} },
-        ] as Node[],
-        edges: [{ id: "edge1", source: "parent", target: "node2", data: {} }] as Edge[],
-      };
-
-      const elkGraph = buildElkGraphFromReactFlowGraph(reactFlowGraph);
-
-      // Edge from parent node should use port ID
-      expect(elkGraph.edges).toHaveLength(1);
-      expect(elkGraph.edges?.[0]).toEqual({
-        id: "edge1",
-        sources: ["parent_out"],
-        targets: ["node2"],
-      });
-    });
-
-    it("uses node ID in edge sources for leaf nodes", () => {
-      const reactFlowGraph: ReactFlowGraph = {
-        nodes: [
-          { id: "node1", position: { x: 0, y: 0 }, data: {} },
-          { id: "node2", position: { x: 0, y: 0 }, data: {} },
-        ] as Node[],
-        edges: [{ id: "edge1", source: "node1", target: "node2", data: {} }] as Edge[],
-      };
-
-      const elkGraph = buildElkGraphFromReactFlowGraph(reactFlowGraph);
-
-      // Edge from leaf node should use node ID directly
-      expect(elkGraph.edges).toHaveLength(1);
-      expect(elkGraph.edges?.[0]).toEqual({
-        id: "edge1",
-        sources: ["node1"],
-        targets: ["node2"],
+        expect(edge).toEqual(expectedEdge);
       });
     });
 
@@ -669,7 +750,6 @@ describe("autoLayout", () => {
       const result = matchReactFlowGraphWithElkLayoutedGraph(reactFlowGraph, layoutedElkGraph);
 
       // Should include all intermediate points (excluding first startPoint and last endPoint)
-      // When multiple sections exist, all intermediate points are included (including section boundaries)
       expect(result.edges[0].data?.wayPoints).toEqual([
         { x: 50, y: 0 }, // bendPoint from section1
         { x: 100, y: 50 }, // endPoint of section1
@@ -721,9 +801,8 @@ describe("autoLayout", () => {
 
       const result = matchReactFlowGraphWithElkLayoutedGraph(reactFlowGraph, layoutedElkGraph);
 
-      // wayPoints should be converted to absolute coordinates for edges inside parent nodes
-      // Parent is at (100, 200), bendPoint is at (10, 40) relative to parent
-      // So absolute position should be (110, 240)
+      // wayPoints are intermediate bend points converted to absolute coordinates.
+      // Parent is at (100, 200), bendPoint is at (10, 40) relative to parent → (110, 240) absolute.
       expect(result.edges[0].data?.wayPoints).toEqual([{ x: 110, y: 240 }]);
     });
 
@@ -773,7 +852,7 @@ describe("autoLayout", () => {
 
       const result = matchReactFlowGraphWithElkLayoutedGraph(reactFlowGraph, layoutedElkGraph);
 
-      // wayPoints should be preserved for edges crossing parent boundaries
+      // wayPoints contains only intermediate bend points (startPoint/endPoint are stripped)
       expect(result.edges[0].data?.wayPoints).toEqual([{ x: 100, y: 10 }]);
     });
 
@@ -950,6 +1029,48 @@ describe("autoLayout", () => {
           ],
           edges: [],
         },
+        undefined,
+      );
+    });
+
+    it("passes ports and FIXED_ORDER constraint to processElkLayout for nodes with edges", async () => {
+      const reactFlowGraph: ReactFlowGraph = {
+        nodes: [
+          { id: "a", position: { x: 0, y: 0 }, data: {}, measured: { width: 100, height: 40 } },
+          { id: "b", position: { x: 0, y: 0 }, data: {}, measured: { width: 100, height: 40 } },
+        ] as Node[],
+        edges: [{ id: "e", source: "a", target: "b", data: {} }] as Edge[],
+      };
+
+      const layoutedElkGraph: ElkNode = {
+        id: "root",
+        children: [
+          { id: "a", x: 0, y: 0 },
+          { id: "b", x: 0, y: 100 },
+        ],
+        edges: [],
+      };
+
+      vi.mocked(core.processElkLayout).mockResolvedValue(layoutedElkGraph);
+
+      await applyAutoLayout(reactFlowGraph);
+
+      expect(core.processElkLayout).toHaveBeenCalledWith(
+        expect.objectContaining({
+          children: expect.arrayContaining([
+            expect.objectContaining({
+              id: "a",
+              ports: [{ id: "a_out", layoutOptions: { "port.side": "SOUTH", "port.index": "0" } }],
+              layoutOptions: { "elk.portConstraints": "FIXED_ORDER" },
+            }),
+            expect.objectContaining({
+              id: "b",
+              ports: [{ id: "b_in", layoutOptions: { "port.side": "NORTH", "port.index": "0" } }],
+              layoutOptions: { "elk.portConstraints": "FIXED_ORDER" },
+            }),
+          ]),
+          edges: [{ id: "e", sources: ["a_out"], targets: ["b_in"] }],
+        }),
         undefined,
       );
     });
@@ -1215,9 +1336,13 @@ describe("autoLayout", () => {
       });
 
       it("has proper spacing configuration", () => {
-        expect(ROOT_LAYOUT_OPTIONS["spacing.edgeNode"]).toBe("24");
+        expect(ROOT_LAYOUT_OPTIONS["spacing.edgeNode"]).toBe("40");
         expect(ROOT_LAYOUT_OPTIONS["spacing.componentComponent"]).toBe("70");
         expect(ROOT_LAYOUT_OPTIONS["spacing.nodeNodeBetweenLayers"]).toBe("70");
+      });
+
+      it("enables feedback edge routing to prevent back-edges from overlapping nodes", () => {
+        expect(ROOT_LAYOUT_OPTIONS["layered.feedbackEdges"]).toBe("true");
       });
     });
 

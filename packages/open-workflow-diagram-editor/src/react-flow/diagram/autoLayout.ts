@@ -59,6 +59,8 @@ export const ROOT_LAYOUT_OPTIONS: LayoutOptions = {
   "layered.layering.strategy": "INTERACTIVE",
   // edge routing and crossing minimization
   "layered.cycleBreaking.strategy": "DEPTH_FIRST",
+  // Route feedback (back) edges on the outside to prevent them from overlapping nodes
+  "layered.feedbackEdges": "true",
   "layered.crossingMinimization.greedySwitch.type": "TWO_SIDED",
   "layered.crossingMinimization.greedySwitch.activationThreshold": "40",
   "layered.crossingMinimization.semiInteractive": "true",
@@ -78,8 +80,8 @@ export const ROOT_LAYOUT_OPTIONS: LayoutOptions = {
   "layered.nodePlacement.bk.initialTemperature": "1000",
   "layered.nodePlacement.bk.coolFactor": "0.005",
   "elk.alignment": "TOP",
-  // spacing
-  "spacing.edgeNode": "24",
+  // spacing — keep enough room for feedback edges to route around nodes
+  "spacing.edgeNode": "40",
   "spacing.edgeEdge": "24",
   "spacing.componentComponent": "70",
   "spacing.nodeNodeBetweenLayers": "70",
@@ -159,58 +161,73 @@ export function buildElkGraphFromReactFlowGraph(reactFlowGraph: ReactFlowGraph):
     }
   });
 
+  // Collect all node IDs that participate in edges (as source or target)
+  const edgeSources = new Set<string>();
+  const edgeTargets = new Set<string>();
+  reactFlowGraph.edges.forEach((edge) => {
+    edgeSources.add(edge.source);
+    edgeTargets.add(edge.target);
+  });
+
   // Apply layout options and dimensions based on whether node has children
   reactFlowGraph.nodes.forEach((node) => {
     const elkNode = nodeMap.get(node.id)!;
     if (elkNode.children && elkNode.children.length > 0) {
-      // Nodes with children get layout options but no fixed dimensions
+      // Parent nodes get layout options but no fixed dimensions
       elkNode.layoutOptions = { ...PARENT_LAYOUT_OPTIONS };
+
+      // Parent nodes that are edge sources get a single shared SOUTH port so ELK
+      // merges all their outgoing edges at the bottom centre (one exit point).
+      if (edgeSources.has(node.id)) {
+        elkNode.ports = [
+          { id: `${node.id}_out`, layoutOptions: { "port.side": "SOUTH", "port.index": "0" } },
+        ];
+      }
     } else {
       // Leaf nodes get fixed dimensions
       const fallbackSize = getNodeSize(node.type);
       elkNode.width = node.measured?.width ?? fallbackSize.width;
       elkNode.height = node.measured?.height ?? fallbackSize.height;
+
+      // Give every leaf node explicit SOUTH (out) and NORTH (in) ports so ELK always
+      // routes outgoing edges from the bottom and incoming edges to the top.
+      // This ensures back-edges (feedback/cycle edges) also exit bottom and enter top,
+      // matching React Flow's fixed connection handle positions.
+      const ports: NonNullable<ElkNode["ports"]> = [];
+      if (edgeSources.has(node.id)) {
+        ports.push({
+          id: `${node.id}_out`,
+          layoutOptions: { "port.side": "SOUTH", "port.index": "0" },
+        });
+      }
+      if (edgeTargets.has(node.id)) {
+        ports.push({
+          id: `${node.id}_in`,
+          layoutOptions: { "port.side": "NORTH", "port.index": "0" },
+        });
+      }
+      if (ports.length > 0) {
+        elkNode.ports = ports;
+        elkNode.layoutOptions = { "elk.portConstraints": "FIXED_ORDER" };
+      }
     }
   });
 
   const reactFlowNodeMap = new Map(reactFlowGraph.nodes.map((node) => [node.id, node]));
 
-  // Track which nodes are sources of edges (to add ports)
-  const nodeOutgoingEdges = new Set<string>();
-  reactFlowGraph.edges.forEach((edge) => {
-    nodeOutgoingEdges.add(edge.source);
-  });
-
-  // Add ports to parent nodes that have outgoing edges
-  nodeOutgoingEdges.forEach((nodeId) => {
-    const elkNode = nodeMap.get(nodeId);
-    const reactFlowNode = reactFlowNodeMap.get(nodeId);
-
-    // Only add port if this is a parent node (has children)
-    if (elkNode && reactFlowNode && elkNode.children && elkNode.children.length > 0) {
-      // Add a single output port at the bottom center
-      elkNode.ports = [
-        {
-          id: `${nodeId}_out`,
-          layoutOptions: {
-            "port.side": "SOUTH",
-            "port.index": "0",
-          },
-        },
-      ];
-    }
-  });
-
   // Nest edges in the appropriate hierarchy level
   const rootEdges: ElkExtendedEdge[] = [];
   reactFlowGraph.edges.forEach((edge) => {
     const sourceNode = nodeMap.get(edge.source);
-    const hasPort = sourceNode?.ports && sourceNode.ports.length > 0;
+    // Use the explicit port if the node has one
+    const hasOutPort = sourceNode?.ports?.some((p) => p.id === `${edge.source}_out`);
+    const targetNode = nodeMap.get(edge.target);
+    const hasInPort = targetNode?.ports?.some((p) => p.id === `${edge.target}_in`);
 
     const elkEdge: ElkExtendedEdge = {
       id: edge.id,
-      sources: hasPort ? [`${edge.source}_out`] : [edge.source],
-      targets: [edge.target],
+      sources: hasOutPort ? [`${edge.source}_out`] : [edge.source],
+      targets: hasInPort ? [`${edge.target}_in`] : [edge.target],
     };
 
     // Find the lowest common ancestor that contains both source and target
@@ -379,7 +396,7 @@ export function matchReactFlowGraphWithElkLayoutedGraph(
 
       const newData = { ...restData };
       // Normalize wayPoints: always use empty array when ELK edge exists but has no intermediate points.
-      // Reserve undefined only for "no ELK edge found" case (handled by returning edge unchanged at line 411).
+      // Reserve undefined only for "no ELK edge found" case (handled by returning edge unchanged below).
       if (sectionPoints.length >= 2) {
         // Use O(1) lookup to find the parent node containing this edge
         const edgeParentId = edgeParentMap.get(edge.id);
@@ -388,7 +405,9 @@ export function matchReactFlowGraphWithElkLayoutedGraph(
         if (edgeParentId && edgeParentId !== "root") {
           const parentAbsolutePos = getAbsolutePosition(edgeParentId, elkNodeMap, nodeParentMap);
 
-          // Convert all waypoints from parent-relative to absolute coordinates
+          // Convert intermediate ELK bend points from parent-relative to absolute coordinates.
+          // startPoint and endPoint are stripped (slice(1,-1)) because React Flow's connection
+          // handles (bottom of source, top of target) serve as the actual path endpoints.
           const absoluteWayPoints = sectionPoints.slice(1, -1).map((point: Point) => ({
             x: point.x + parentAbsolutePos.x,
             y: point.y + parentAbsolutePos.y,
@@ -396,9 +415,8 @@ export function matchReactFlowGraphWithElkLayoutedGraph(
 
           newData.wayPoints = absoluteWayPoints;
         } else {
-          // Edge is at root level, use coordinates as-is
-          // React Flow already knows the rendered source/target anchors.
-          // Keep only the intermediate ELK points so the path stays in one coordinate space.
+          // Edge is at root level — keep only intermediate bend points.
+          // React Flow's source/target anchors (bottom/top) are the path endpoints.
           newData.wayPoints = sectionPoints.slice(1, -1);
         }
       } else {
