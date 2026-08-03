@@ -45,6 +45,8 @@ export const createMockContextValue = (
   setEdges: noop,
   setNodes: noop,
   setSelectedNodeId: noop,
+  updateTask: noop,
+  getTask: () => undefined,
   ...overrides,
 });
 

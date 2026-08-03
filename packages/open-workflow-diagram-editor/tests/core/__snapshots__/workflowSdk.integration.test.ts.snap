@@ -378,284 +378,120 @@ exports[`buildFlatGraph > returns a loaded extended graph object from model 1`] 
 exports[`parseValidationErrorMessage > parses validation errors from workflow with validation errors 1`] = `
 [
   {
-    "errorType": "#/oneOf/0/required",
-    "message": "must have required property 'call'",
-    "object": {
-      "missingProperty": "call",
-    },
-    "path": "/do/0/checkup",
+    "message": "Required field "call" is missing.",
+    "path": "/do/checkup",
   },
   {
-    "errorType": "#/oneOf/1/required",
-    "message": "must have required property 'call'",
-    "object": {
-      "missingProperty": "call",
-    },
-    "path": "/do/0/checkup",
+    "message": "Required field "with" is missing.",
+    "path": "/do/checkup",
   },
   {
-    "errorType": "#/oneOf/2/required",
-    "message": "must have required property 'call'",
-    "object": {
-      "missingProperty": "call",
-    },
-    "path": "/do/0/checkup",
+    "message": "Contains unexpected properties.",
+    "path": "/do/checkup",
   },
   {
-    "errorType": "#/oneOf/3/required",
-    "message": "must have required property 'call'",
-    "object": {
-      "missingProperty": "call",
-    },
-    "path": "/do/0/checkup",
-  },
-  {
-    "errorType": "#/oneOf/4/required",
-    "message": "must have required property 'call'",
-    "object": {
-      "missingProperty": "call",
-    },
-    "path": "/do/0/checkup",
-  },
-  {
-    "errorType": "#/oneOf/5/required",
-    "message": "must have required property 'call'",
-    "object": {
-      "missingProperty": "call",
-    },
-    "path": "/do/0/checkup",
-  },
-  {
-    "errorType": "#/oneOf/6/required",
-    "message": "must have required property 'call'",
-    "object": {
-      "missingProperty": "call",
-    },
-    "path": "/do/0/checkup",
-  },
-  {
-    "errorType": "#/oneOf",
     "message": "must match exactly one schema in oneOf",
-    "object": {
-      "passingSchemas": null,
-    },
-    "path": "/do/0/checkup",
+    "path": "/do/checkup",
   },
   {
-    "errorType": "#/oneOf/0/required",
-    "message": "must have required property 'call'",
-    "object": {
-      "missingProperty": "call",
-    },
-    "path": "/do/0/checkup/do/1/checkup",
+    "message": "Required field "call" is missing.",
+    "path": "/do/checkup/do/checkup",
   },
   {
-    "errorType": "#/oneOf/1/required",
-    "message": "must have required property 'call'",
-    "object": {
-      "missingProperty": "call",
-    },
-    "path": "/do/0/checkup/do/1/checkup",
+    "message": "Required field "with" is missing.",
+    "path": "/do/checkup/do/checkup",
   },
   {
-    "errorType": "#/oneOf/2/required",
-    "message": "must have required property 'call'",
-    "object": {
-      "missingProperty": "call",
-    },
-    "path": "/do/0/checkup/do/1/checkup",
+    "message": "Contains unexpected properties.",
+    "path": "/do/checkup/do/checkup",
   },
   {
-    "errorType": "#/oneOf/3/required",
-    "message": "must have required property 'call'",
-    "object": {
-      "missingProperty": "call",
-    },
-    "path": "/do/0/checkup/do/1/checkup",
-  },
-  {
-    "errorType": "#/oneOf/4/required",
-    "message": "must have required property 'call'",
-    "object": {
-      "missingProperty": "call",
-    },
-    "path": "/do/0/checkup/do/1/checkup",
-  },
-  {
-    "errorType": "#/oneOf/5/required",
-    "message": "must have required property 'call'",
-    "object": {
-      "missingProperty": "call",
-    },
-    "path": "/do/0/checkup/do/1/checkup",
-  },
-  {
-    "errorType": "#/oneOf/6/required",
-    "message": "must have required property 'call'",
-    "object": {
-      "missingProperty": "call",
-    },
-    "path": "/do/0/checkup/do/1/checkup",
-  },
-  {
-    "errorType": "#/oneOf",
     "message": "must match exactly one schema in oneOf",
-    "object": {
-      "passingSchemas": null,
-    },
-    "path": "/do/0/checkup/do/1/checkup",
+    "path": "/do/checkup/do/checkup",
   },
   {
-    "errorType": "#/type",
-    "message": "must be array",
-    "object": {
-      "type": "array",
-    },
-    "path": "/do/0/checkup/do/1/checkup/do",
+    "message": "Must be of type array.",
+    "path": "/do/checkup/do/checkup/do",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'fork'",
-    "object": {
-      "missingProperty": "fork",
-    },
-    "path": "/do/0/checkup/do/1/checkup",
+    "message": "Required field "fork" is missing.",
+    "path": "/do/checkup/do/checkup",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'emit'",
-    "object": {
-      "missingProperty": "emit",
-    },
-    "path": "/do/0/checkup/do/1/checkup",
+    "message": "Required field "emit" is missing.",
+    "path": "/do/checkup/do/checkup",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'listen'",
-    "object": {
-      "missingProperty": "listen",
-    },
-    "path": "/do/0/checkup/do/1/checkup",
+    "message": "Required field "listen" is missing.",
+    "path": "/do/checkup/do/checkup",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'raise'",
-    "object": {
-      "missingProperty": "raise",
-    },
-    "path": "/do/0/checkup/do/1/checkup",
+    "message": "Required field "raise" is missing.",
+    "path": "/do/checkup/do/checkup",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'run'",
-    "object": {
-      "missingProperty": "run",
-    },
-    "path": "/do/0/checkup/do/1/checkup",
+    "message": "Required field "run" is missing.",
+    "path": "/do/checkup/do/checkup",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'set'",
-    "object": {
-      "missingProperty": "set",
-    },
-    "path": "/do/0/checkup/do/1/checkup",
+    "message": "Required field "set" is missing.",
+    "path": "/do/checkup/do/checkup",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'switch'",
-    "object": {
-      "missingProperty": "switch",
-    },
-    "path": "/do/0/checkup/do/1/checkup",
+    "message": "Required field "switch" is missing.",
+    "path": "/do/checkup/do/checkup",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'try'",
-    "object": {
-      "missingProperty": "try",
-    },
-    "path": "/do/0/checkup/do/1/checkup",
+    "message": "Required field "try" is missing.",
+    "path": "/do/checkup/do/checkup",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'wait'",
-    "object": {
-      "missingProperty": "wait",
-    },
-    "path": "/do/0/checkup/do/1/checkup",
+    "message": "Required field "catch" is missing.",
+    "path": "/do/checkup/do/checkup",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'fork'",
-    "object": {
-      "missingProperty": "fork",
-    },
-    "path": "/do/0/checkup",
+    "message": "Required field "wait" is missing.",
+    "path": "/do/checkup/do/checkup",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'emit'",
-    "object": {
-      "missingProperty": "emit",
-    },
-    "path": "/do/0/checkup",
+    "message": "Required field "fork" is missing.",
+    "path": "/do/checkup",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'listen'",
-    "object": {
-      "missingProperty": "listen",
-    },
-    "path": "/do/0/checkup",
+    "message": "Required field "emit" is missing.",
+    "path": "/do/checkup",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'raise'",
-    "object": {
-      "missingProperty": "raise",
-    },
-    "path": "/do/0/checkup",
+    "message": "Required field "listen" is missing.",
+    "path": "/do/checkup",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'run'",
-    "object": {
-      "missingProperty": "run",
-    },
-    "path": "/do/0/checkup",
+    "message": "Required field "raise" is missing.",
+    "path": "/do/checkup",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'set'",
-    "object": {
-      "missingProperty": "set",
-    },
-    "path": "/do/0/checkup",
+    "message": "Required field "run" is missing.",
+    "path": "/do/checkup",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'switch'",
-    "object": {
-      "missingProperty": "switch",
-    },
-    "path": "/do/0/checkup",
+    "message": "Required field "set" is missing.",
+    "path": "/do/checkup",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'try'",
-    "object": {
-      "missingProperty": "try",
-    },
-    "path": "/do/0/checkup",
+    "message": "Required field "switch" is missing.",
+    "path": "/do/checkup",
   },
   {
-    "errorType": "#/required",
-    "message": "must have required property 'wait'",
-    "object": {
-      "missingProperty": "wait",
-    },
-    "path": "/do/0/checkup",
+    "message": "Required field "try" is missing.",
+    "path": "/do/checkup",
+  },
+  {
+    "message": "Required field "catch" is missing.",
+    "path": "/do/checkup",
+  },
+  {
+    "message": "Required field "wait" is missing.",
+    "path": "/do/checkup",
   },
 ]
 `;
@@ -710,8 +546,8 @@ exports[`parseWorkflow > returns model and errors for invalid but parseable 'JSO
 {
   "errors": [
     {
-      "errorType": "Validation failed at '<root>' (Workflow): 'Workflow' is invalid",
-      "message": "The DSL version of the workflow 'undefined' does not satisfy the DSL version range supported by this SDK '>=1.0.0-0 <=1.0.3'.",
+      "message": "Required field "document" is missing.",
+      "path": "unknown",
     },
   ],
   "model": Workflow {
@@ -732,8 +568,8 @@ exports[`parseWorkflow > returns model and errors for invalid but parseable 'YAM
 {
   "errors": [
     {
-      "errorType": "Validation failed at '<root>' (Workflow): 'Workflow' is invalid",
-      "message": "The DSL version of the workflow 'undefined' does not satisfy the DSL version range supported by this SDK '>=1.0.0-0 <=1.0.3'.",
+      "message": "Required field "document" is missing.",
+      "path": "unknown",
     },
   ],
   "model": Workflow {
@@ -753,8 +589,8 @@ exports[`parseWorkflow > returns model and errors for invalid but parseable 'YAM
 exports[`validateWorkflow > returns parsed validation errors for an invalid workflow 1`] = `
 [
   {
-    "errorType": "Validation failed at '<root>' (Workflow): 'Workflow' is invalid",
-    "message": "The DSL version of the workflow 'undefined' does not satisfy the DSL version range supported by this SDK '>=1.0.0-0 <=1.0.3'.",
+    "message": "Required field "document" is missing.",
+    "path": "unknown",
   },
 ]
 `;

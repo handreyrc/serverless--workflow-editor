@@ -31,12 +31,17 @@ import { NodeDetailsView } from "@/side-panel/NodeDetailsView";
 import { MermaidActions } from "@/side-panel/MermaidActions";
 import { getNodeVisualConfig } from "@/react-flow/nodes/taskNodeConfig";
 import type { BaseNodeData } from "@/react-flow/nodes/Nodes";
+import type { TaskEditFormHandle } from "@/side-panel/TaskEditForm";
 import "./SidePanel.css";
 
 export function SidePanel() {
-  const { model, nodes, selectedNodeId } = useDiagramEditorContext();
+  const { model, nodes, selectedNodeId, isReadOnly } = useDiagramEditorContext();
   const { setOpen } = useSidebar();
   const { t } = useI18n();
+
+  // Ref to the TaskEditForm's imperative handle — allows SidebarFooter buttons to call
+  // handleApply / handleCancel without prop-drilling callbacks (architecture AD-06).
+  const formRef = React.useRef<TaskEditFormHandle>(null);
 
   const selectedNode = React.useMemo(
     () =>
@@ -91,7 +96,7 @@ export function SidePanel() {
       </SidebarHeader>
       <SidebarContent aria-label={t("aria.panel.content")} role="region">
         {selectedNode ? (
-          <NodeDetailsView node={selectedNode} />
+          <NodeDetailsView node={selectedNode} formRef={formRef} />
         ) : (
           <>
             <div className="dec-sidebar-hint">
@@ -102,7 +107,34 @@ export function SidePanel() {
           </>
         )}
       </SidebarContent>
-      {model !== null && selectedNodeId === null ? (
+
+      {/* SidebarFooter — sticky-pinned footer (spec NFR-07, architecture AD-06)
+          Conditional logic:
+          1. Node selected + edit mode  → Apply + Cancel buttons (spec FR-02, FE-09)
+          2. No node selected + model present → MermaidActions (existing behaviour, read+edit)
+          3. No footer otherwise                                                  */}
+      {!isReadOnly && selectedNode !== null ? (
+        <SidebarFooter aria-label={t("aria.panel.taskActions")}>
+          <div className="dec-edit-footer-actions">
+            <button
+              type="button"
+              className="dec-edit-btn dec-edit-btn--cancel"
+              onClick={() => formRef.current?.handleCancel()}
+              data-testid="task-edit-cancel"
+            >
+              {t("sidebar.cancel")}
+            </button>
+            <button
+              type="button"
+              className="dec-edit-btn dec-edit-btn--apply"
+              onClick={() => formRef.current?.handleApply()}
+              data-testid="task-edit-apply"
+            >
+              {t("sidebar.apply")}
+            </button>
+          </div>
+        </SidebarFooter>
+      ) : model !== null && selectedNodeId === null ? (
         <SidebarFooter aria-label={t("aria.panel.exportActions")}>
           <MermaidActions model={model} />
         </SidebarFooter>

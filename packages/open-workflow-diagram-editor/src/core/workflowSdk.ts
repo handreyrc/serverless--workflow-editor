@@ -17,6 +17,7 @@
 import { load } from "js-yaml";
 import * as sdk from "@openworkflowspec/sdk";
 import { fixNodesConnections } from "./graph";
+import { validate } from "./validation/validator";
 
 /**
  * Sanitizes an object by removing dangerous prototype pollution keys
@@ -212,43 +213,13 @@ export function parseValidationErrorMessage(message: string): ValidationError[] 
   return errors;
 }
 
-/*
- * The SDK repeats its full error block within a single message, so the parsed list
- * contains duplicates (identical path + errorType + message). Those carry no
- * extra information and would otherwise surface the same error twice on a node and
- * inflate error counts, so collapse exact duplicates here at the produce point.
- */
-function dedupeValidationErrors(errors: ValidationError[]): ValidationError[] {
-  const seen = new Set<string>();
-  return errors.filter((error) => {
-    const signature = `${error.path ?? ""}|${error.errorType}|${error.message}`;
-    if (seen.has(signature)) {
-      return false;
-    }
-    seen.add(signature);
-    return true;
-  });
-}
-
 export function validateWorkflow(model: sdk.Specification.Workflow): SdkError[] {
-  try {
-    sdk.validate("Workflow", model);
-    return [];
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    const parsedErrors = dedupeValidationErrors(parseValidationErrorMessage(message));
-
-    // If parsing succeeded and returned errors, use them
-    if (parsedErrors.length > 0) {
-      return parsedErrors;
-    }
-
-    // Otherwise, return the original error as-is
-    if (err instanceof Error) {
-      return [err];
-    }
-    return [new Error(message)];
-  }
+  const items = validate(model as object);
+  return items.map((item) =>
+    item.field !== undefined
+      ? { path: item.field, message: item.message }
+      : { message: item.message },
+  );
 }
 
 export function parseWorkflow(text: string): WorkflowParseResult {

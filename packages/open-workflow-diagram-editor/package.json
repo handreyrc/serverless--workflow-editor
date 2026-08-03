@@ -44,6 +44,7 @@
     "@openworkflowspec/i18n": "workspace:*",
     "@openworkflowspec/sdk": "catalog:",
     "@xyflow/react": "catalog:",
+    "ajv": "catalog:",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "elkjs": "catalog:",

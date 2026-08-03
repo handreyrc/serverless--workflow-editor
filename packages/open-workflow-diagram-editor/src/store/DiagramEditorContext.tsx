@@ -34,6 +34,18 @@ export type DiagramEditorContextType = {
   setNodes: React.Dispatch<React.SetStateAction<RF.Node[]>>;
   setEdges: React.Dispatch<React.SetStateAction<RF.Edge[]>>;
   setSelectedNodeId: React.Dispatch<React.SetStateAction<string | null>>;
+  /**
+   * Replaces the task identified by nodeId in the in-memory workflow model.
+   * The nodeId must match the label of a task entry in model.do (the task name key).
+   * Only valid after Apply confirms validation succeeds (spec FR-08, architecture AD-03).
+   */
+  updateTask: (nodeId: string, updatedTask: Specification.Task) => void;
+  /**
+   * Returns the live task object for the given nodeId from model.do.
+   * Always reads from the current in-memory model — not from stale node.data.task.
+   * Returns undefined if nodeId is not found or model is null.
+   */
+  getTask: (nodeId: string) => Specification.Task | undefined;
 };
 
 export const DiagramEditorContext = React.createContext<DiagramEditorContextType | undefined>(

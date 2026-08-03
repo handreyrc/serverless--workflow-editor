@@ -388,5 +388,142 @@
   .dec-root.dark .dec-sidebar-trigger-badge:hover {
     @apply dec:bg-red-300;
   }
-    /* end validation errors */
+  /* end validation errors */
+
+  /* ── Edit form fields ────────────────────────────────────────────────── */
+
+  .dec-root .dec-edit-field-label {
+    @apply dec:block dec:mb-1 dec:text-xs dec:text-gray-500;
+    overflow-wrap: anywhere;
+  }
+
+  .dec-root.dark .dec-edit-field-label {
+    @apply dec:text-gray-400;
+  }
+
+  .dec-root .dec-edit-field-required::after {
+    content: " *";
+    @apply dec:text-red-500;
+  }
+
+  .dec-root .dec-edit-input {
+    @apply dec:w-full dec:rounded-md dec:border dec:border-gray-300
+      dec:bg-white dec:px-2.5 dec:py-1.5 dec:text-sm dec:text-gray-900
+      dec:outline-none dec:transition-colors;
+  }
+
+  .dec-root .dec-edit-input:focus {
+    @apply dec:border-blue-500 dec:ring-1 dec:ring-blue-500;
+  }
+
+  .dec-root.dark .dec-edit-input {
+    @apply dec:border-gray-600 dec:bg-gray-800 dec:text-gray-100;
+  }
+
+  .dec-root.dark .dec-edit-input:focus {
+    @apply dec:border-blue-400 dec:ring-blue-400;
+  }
+
+  .dec-root .dec-edit-input--error,
+  .dec-root .dec-edit-input--error:focus {
+    @apply dec:border-red-500 dec:ring-1 dec:ring-red-500;
+  }
+
+  .dec-root.dark .dec-edit-input--error,
+  .dec-root.dark .dec-edit-input--error:focus {
+    @apply dec:border-red-400 dec:ring-red-400;
+  }
+
+  .dec-root .dec-edit-checkbox-wrap {
+    @apply dec:flex dec:items-center dec:mt-1;
+  }
+
+  .dec-root .dec-edit-checkbox {
+    @apply dec:h-4 dec:w-4 dec:rounded dec:border-gray-300 dec:accent-blue-600 dec:cursor-pointer;
+  }
+
+  .dec-root .dec-edit-checkbox.dec-edit-input--error {
+    @apply dec:accent-red-500 dec:outline dec:outline-1 dec:outline-red-500;
+  }
+
+  .dec-root .dec-edit-field-wrap {
+    @apply dec:relative;
+  }
+
+  .dec-root .dec-edit-field-errors {
+    @apply dec:absolute dec:left-0 dec:right-0
+      dec:z-10 dec:mt-1 dec:list-none dec:p-0 dec:m-0
+      dec:rounded-md dec:border dec:border-red-200 dec:bg-red-50
+      dec:px-3 dec:py-2 dec:flex dec:flex-col dec:gap-1
+      dec:shadow-md;
+    top: 100%;
+  }
+
+  .dec-root.dark .dec-edit-field-errors {
+    @apply dec:border-red-900 dec:bg-gray-900;
+  }
+
+  .dec-root .dec-edit-field-error-msg {
+    @apply dec:text-xs dec:text-red-700;
+    overflow-wrap: anywhere;
+  }
+
+  .dec-root.dark .dec-edit-field-error-msg {
+    @apply dec:text-red-400;
+  }
+
+  .dec-root .dec-edit-no-fields {
+    @apply dec:text-xs dec:text-gray-400 dec:py-2 dec:px-1;
+  }
+
+  .dec-root.dark .dec-edit-no-fields {
+    @apply dec:text-gray-500;
+  }
+
+  /* ── Edit footer actions (Apply / Cancel in SidebarFooter) ──────────── */
+
+  .dec-root .dec-edit-footer-actions {
+    @apply dec:flex dec:gap-2 dec:justify-end dec:w-full;
+  }
+
+  .dec-root .dec-edit-btn {
+    @apply dec:inline-flex dec:items-center dec:justify-center
+      dec:rounded-md dec:px-3 dec:py-1.5
+      dec:text-sm dec:font-medium
+      dec:border dec:transition-colors dec:cursor-pointer;
+  }
+
+  .dec-root .dec-edit-btn--cancel {
+    @apply dec:border-gray-300 dec:bg-white dec:text-gray-700;
+  }
+
+  .dec-root .dec-edit-btn--cancel:hover {
+    @apply dec:bg-gray-50;
+  }
+
+  .dec-root.dark .dec-edit-btn--cancel {
+    @apply dec:border-gray-600 dec:bg-gray-800 dec:text-gray-300;
+  }
+
+  .dec-root.dark .dec-edit-btn--cancel:hover {
+    @apply dec:bg-gray-700;
+  }
+
+  .dec-root .dec-edit-btn--apply {
+    @apply dec:border-blue-600 dec:bg-blue-600 dec:text-white;
+  }
+
+  .dec-root .dec-edit-btn--apply:hover {
+    @apply dec:bg-blue-700 dec:border-blue-700;
+  }
+
+  .dec-root.dark .dec-edit-btn--apply {
+    @apply dec:border-blue-500 dec:bg-blue-600 dec:text-white;
+  }
+
+  .dec-root.dark .dec-edit-btn--apply:hover {
+    @apply dec:bg-blue-500;
+  }
+
+  /* ── end edit form ───────────────────────────────────────────────────── */
 }

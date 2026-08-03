@@ -41,8 +41,11 @@ export function ErrorSection({ items }: ErrorSectionProps) {
         <span className="dec-sidebar-errors-count">{items.length}</span>
       </div>
       <ul className="dec-sidebar-errors-list">
-        {items.map((item) => (
-          <li key={`${item.field ?? ""}:${item.message}`} className="dec-sidebar-error-item">
+        {items.map((item, index) => (
+          <li
+            key={`${index}:${item.field ?? ""}:${item.message}`}
+            className="dec-sidebar-error-item"
+          >
             {item.field !== undefined && (
               <span className="dec-sidebar-error-field">{item.field}</span>
             )}

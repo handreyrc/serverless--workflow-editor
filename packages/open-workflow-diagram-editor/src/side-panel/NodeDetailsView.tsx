@@ -23,9 +23,13 @@ import { YamlField, PropertyField, SectionHeader } from "./Fields";
 import { useDiagramEditorContext } from "@/store/DiagramEditorContext";
 import { getNodeErrorField, getNodeErrors } from "@/core";
 import { ErrorSection } from "./ErrorsSection";
+import { TaskEditForm, type TaskEditFormHandle } from "./TaskEditForm";
+import * as React from "react";
 
 type NodeDetailsViewProps = {
   node: RF.Node<BaseNodeData>;
+  /** Ref forwarded from SidePanel to allow SidebarFooter buttons to call apply/cancel. */
+  formRef?: React.Ref<TaskEditFormHandle>;
 };
 
 const OBJECT_GLYPH = "{...}";
@@ -49,18 +53,44 @@ function FieldRow({ label, field }: { label: string; field: DetailField }) {
   return <PropertyField label={label} value={fieldText(field)} />;
 }
 
-export function NodeDetailsView({ node }: NodeDetailsViewProps) {
+export function NodeDetailsView({ node, formRef }: NodeDetailsViewProps) {
   const { t } = useI18n();
-  const { errors, nodeIds } = useDiagramEditorContext();
-  const task = node.data.task;
+  const { errors, nodeIds, isReadOnly, getTask } = useDiagramEditorContext();
+
+  // For the edit form: always read from the live model via getTask (never from node.data.task).
+  // For the read-only display: fall back to node.data.task when the model isn't in context
+  // (e.g. in unit tests that don't wire a full model). This preserves NFR-06 backward compat.
+  const liveTask = getTask(node.id) ?? node.data.task;
 
   const nodeErrors = getNodeErrors(errors, node.id, nodeIds);
   const errorItems = nodeErrors.map((error) => {
     const field = getNodeErrorField(error, node.id);
     return field !== undefined ? { message: error.message, field } : { message: error.message };
   });
-  const fields = task ? getTaskDetails(task) : [];
+  const fields = liveTask ? getTaskDetails(liveTask) : [];
 
+  /* ── Edit mode (isReadOnly = false): render TaskEditForm ── */
+  if (!isReadOnly) {
+    /* TODO FUTURE: Once we have a synced text -> diagram view, re-look at the source JSON block */
+    return (
+      <div data-testid="node-details">
+        <ErrorSection items={errorItems} />
+        <TaskEditForm ref={formRef} node={node} />
+        {liveTask !== undefined && (
+          <>
+            <div className="dec-sidebar-section-spacer" />
+            <SectionHeader label={t("sidebar.sectionSource")} />
+            <YamlField
+              yaml={dump(JSON.parse(JSON.stringify(liveTask)), { indent: 2, lineWidth: -1 })}
+              summary={t("sidebar.viewSource")}
+            />
+          </>
+        )}
+      </div>
+    );
+  }
+
+  /* ── Read-only mode: render static field list (unchanged, spec NFR-06) ── */
   if (nodeErrors.length === 0 && fields.length === 0) {
     return <p className="dec-sidebar-hint-text">{t("sidebar.noDetails")}</p>;
   }
@@ -79,12 +109,12 @@ export function NodeDetailsView({ node }: NodeDetailsViewProps) {
           </dl>
         </>
       )}
-      {task !== undefined && (
+      {liveTask !== undefined && (
         <>
           <div className="dec-sidebar-section-spacer" />
           <SectionHeader label={t("sidebar.sectionSource")} />
           <YamlField
-            yaml={dump(task, { indent: 2, lineWidth: -1 })}
+            yaml={dump(JSON.parse(JSON.stringify(liveTask)), { indent: 2, lineWidth: -1 })}
             summary={t("sidebar.viewSource")}
           />
         </>

@@ -75,6 +75,9 @@ catalogs:
     '@xyflow/react':
       specifier: ^12.11.2
       version: 12.11.2
+    ajv:
+      specifier: ^8.20.0
+      version: 8.20.0
     class-variance-authority:
       specifier: ^0.7.1
       version: 0.7.1
@@ -218,6 +221,9 @@ importers:
       '@xyflow/react':
         specifier: 'catalog:'
         version: 12.11.2(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      ajv:
+        specifier: 'catalog:'
+        version: 8.20.0
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
