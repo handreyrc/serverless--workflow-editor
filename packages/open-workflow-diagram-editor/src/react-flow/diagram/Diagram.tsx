@@ -40,36 +40,43 @@ const applyEdgeZIndex = <T extends RF.Edge>(edges: T[]): T[] =>
     zIndex: edge.selected ? ZINDEX.EDGE_SELECTED : ZINDEX.EDGE_REGULAR,
   }));
 
-/**
- * Diagram component API
- */
-export type DiagramRef = {
-  doSomething: () => void; // TODO: to be implemented, it is just a placeholder
-};
-
 export type DiagramProps = {
   divRef?: React.RefObject<HTMLDivElement | null>;
-  ref?: React.Ref<DiagramRef>;
   colorMode?: ResolvedColorMode;
 };
 
-export const Diagram = ({ divRef, ref, colorMode = "light" }: DiagramProps) => {
+export const Diagram = ({ divRef, colorMode = "light" }: DiagramProps) => {
   const { t } = useI18n();
+  // useReactFlow must be in deps of effects that use it (not initialised on first render).
   const reactFlowInstance: RF.ReactFlowInstance = RF.useReactFlow();
-  const { model, errors, nodes, edges, isReadOnly, setNodes, setEdges, setSelectedNodeId } =
-    useDiagramEditorContext();
+  const {
+    model,
+    errors,
+    nodes,
+    edges,
+    isReadOnly,
+    setNodes,
+    setEdges,
+    setSelectedNodeId,
+    selectedNodeId,
+    submitModel,
+    pendingViewportRestore,
+    clearPendingViewportRestore,
+  } = useDiagramEditorContext();
 
   const [minimapVisible, setMinimapVisible] = React.useState(false);
 
-  React.useImperativeHandle(
-    ref,
-    () => ({
-      doSomething: () => {
-        // TODO: to be implemented, it is just a placeholder
-      },
-    }),
-    [],
-  );
+  // Track whether fitView has run at least once in this edit session.
+  const hasRunFitView = React.useRef<boolean>(false);
+
+  // Ref to the latest selectedNodeId so the layout callback can stamp selection
+  // without taking it as a dependency (avoids re-running layout on every click).
+  const selectedNodeIdRef = React.useRef<string | null>(selectedNodeId);
+  selectedNodeIdRef.current = selectedNodeId;
+
+  // True once the first layout has been committed to context — gates rendering the canvas
+  // so React Flow mounts with nodes already positioned and fitView fires on real content.
+  const [layoutReady, setLayoutReady] = React.useState(false);
 
   const onNodesChange = React.useCallback<RF.OnNodesChange>(
     (changes) => setNodes((nodesSnapshot) => RF.applyNodeChanges(changes, nodesSnapshot)),
@@ -91,60 +98,101 @@ export const Diagram = ({ divRef, ref, colorMode = "light" }: DiagramProps) => {
     [setSelectedNodeId],
   );
 
-  // Rebuild nodes and edges as model changes with debouncing
+  // Rebuild nodes and edges when model or errors change (with debouncing).
   React.useEffect(() => {
     let isActive = true;
-    let debounceTimeoutId: ReturnType<typeof setTimeout> | null = null;
-    let fitViewTimeoutId: ReturnType<typeof setTimeout> | null = null;
     let abortController: AbortController | null = null;
 
-    // Debounce layout calculation to avoid excessive CPU usage on rapid changes
-    debounceTimeoutId = setTimeout(() => {
-      // Create abort controller for this layout operation
+    // Debounce layout calculation to avoid excessive CPU usage on rapid changes.
+    const debounceTimeoutId = setTimeout(() => {
       abortController = new AbortController();
 
       const graph = buildDiagramElements(model, errors);
       applyAutoLayout(graph, abortController.signal)
         .then(({ nodes, edges }) => {
-          // Only update if this effect is still active (not cancelled by cleanup)
-          if (isActive && !abortController?.signal.aborted) {
-            setNodes(nodes);
+          if (isActive && !abortController!.signal.aborted) {
+            // Preserve selection: stamp selected:true on the node that matches
+            // selectedNodeId so React Flow does not clear it when nodes are replaced.
+            const selectedId = selectedNodeIdRef.current;
+            const stampedNodes = selectedId
+              ? nodes.map((n) => (n.id === selectedId ? { ...n, selected: true } : n))
+              : nodes;
+            setNodes(stampedNodes);
             setEdges(applyEdgeZIndex(edges));
-
-            // Queue fitView to run after React updates the DOM
-            fitViewTimeoutId = setTimeout(() => reactFlowInstance.fitView(), 0);
+            // On first load: reveal the canvas — React Flow will mount with nodes already
+            // positioned and the fitView prop will fit them correctly on first render.
+            setLayoutReady(true);
           }
         })
         .catch((error) => {
-          // Ignore abort errors as they are expected when cancelling
           if (error.name === "AbortError") {
             return;
           }
-          // Handle other auto-layout errors to prevent unhandled promise rejections
           console.error("Failed to apply auto-layout:", error);
         });
-    }, 100); // 150ms debounce delay
+    }, 100);
 
-    // Cleanup function to cancel stale updates and clear timeouts
     return () => {
       isActive = false;
-
-      // Cancel debounce timer
-      if (debounceTimeoutId !== null) {
-        clearTimeout(debounceTimeoutId);
-      }
-
-      // Cancel fitView timer
-      if (fitViewTimeoutId !== null) {
-        clearTimeout(fitViewTimeoutId);
-      }
-
-      // Abort in-flight layout calculation
-      if (abortController) {
-        abortController.abort();
-      }
+      clearTimeout(debounceTimeoutId);
+      abortController?.abort();
     };
-  }, [model, errors, reactFlowInstance, setNodes, setEdges]);
+  }, [model, errors, setNodes, setEdges]);
+
+  // After each layout cycle: restore viewport (undo/redo) or fit (read-only re-layout),
+  // then submit the model. The initial fitView on first mount is handled by the
+  // fitView prop on <RF.ReactFlow> (fires once, duration:0, nodes already positioned).
+  React.useEffect(() => {
+    if (!layoutReady) return;
+
+    let isActive = true;
+    const id = setTimeout(() => {
+      if (!isActive) return;
+
+      if (pendingViewportRestore) {
+        // Undo/redo — restore saved viewport instead of fitting.
+        reactFlowInstance.setViewport(pendingViewportRestore);
+        clearPendingViewportRestore();
+        // Submit with the restored viewport directly — setViewport is async so
+        // getViewport() would still return the old value at this point.
+        if (model !== null) {
+          submitModel(model, pendingViewportRestore, selectedNodeId);
+        }
+      } else {
+        if (isReadOnly && hasRunFitView.current) {
+          // Re-fit on subsequent read-only layout updates (e.g. content prop change).
+          // duration:0 — no animation; the user expects an instant re-render, not a pan.
+          reactFlowInstance.fitView({ ...FIT_VIEW_OPTIONS, duration: 0 });
+        }
+
+        // Track that first fitView has run (the RF prop fires on mount).
+        if (!hasRunFitView.current) {
+          hasRunFitView.current = true;
+        }
+
+        // Submit model with the real viewport captured after layout settles.
+        // Diagram.tsx is the sole caller of submitModel.
+        if (model !== null) {
+          submitModel(model, reactFlowInstance.getViewport(), selectedNodeId);
+        }
+      }
+    }, 0);
+
+    return () => {
+      isActive = false;
+      clearTimeout(id);
+    };
+  }, [
+    nodes,
+    pendingViewportRestore,
+    isReadOnly,
+    reactFlowInstance,
+    model,
+    selectedNodeId,
+    submitModel,
+    clearPendingViewportRestore,
+    layoutReady,
+  ]);
 
   return (
     <div
@@ -152,58 +200,61 @@ export const Diagram = ({ divRef, ref, colorMode = "light" }: DiagramProps) => {
       className={isReadOnly ? "dec:h-full dec:relative read-only" : "dec:h-full dec:relative"}
       data-testid={"diagram-container"}
     >
-      <RF.ReactFlow
-        nodeTypes={ReactFlowNodeTypes}
-        nodes={nodes}
-        edgeTypes={ReactFlowEdgeTypes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onSelectionChange={onSelectionChange}
-        onlyRenderVisibleElements={true}
-        zoomOnDoubleClick={false}
-        elementsSelectable={true}
-        panOnScroll={true}
-        panOnDrag={false}
-        zoomOnScroll={false}
-        preventScrolling={true}
-        selectionOnDrag={true}
-        fitView
-        colorMode={colorMode}
-        defaultEdgeOptions={{
-          markerEnd: {
-            type: RF.MarkerType.ArrowClosed,
-            width: 10,
-            height: 10,
-          },
-        }}
-        data-testid={"react-flow-canvas"}
-        elevateEdgesOnSelect={false}
-        nodesDraggable={false}
-        nodesConnectable={!isReadOnly}
-      >
-        {minimapVisible && (
-          <RF.MiniMap pannable zoomable position={"bottom-left"} maskStrokeWidth={2} />
-        )}
-
-        <RF.Panel position="top-right">
-          <SidePanelTrigger />
-        </RF.Panel>
-
-        <RF.Controls
-          fitViewOptions={FIT_VIEW_OPTIONS}
-          position={"bottom-right"}
-          showInteractive={false}
+      {!layoutReady ? null : (
+        <RF.ReactFlow
+          nodeTypes={ReactFlowNodeTypes}
+          nodes={nodes}
+          edgeTypes={ReactFlowEdgeTypes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onSelectionChange={onSelectionChange}
+          onlyRenderVisibleElements={true}
+          zoomOnDoubleClick={false}
+          elementsSelectable={true}
+          panOnScroll={true}
+          panOnDrag={false}
+          zoomOnScroll={false}
+          preventScrolling={true}
+          selectionOnDrag={true}
+          fitView
+          fitViewOptions={{ ...FIT_VIEW_OPTIONS, duration: 0 }}
+          colorMode={colorMode}
+          defaultEdgeOptions={{
+            markerEnd: {
+              type: RF.MarkerType.ArrowClosed,
+              width: 10,
+              height: 10,
+            },
+          }}
+          data-testid={"react-flow-canvas"}
+          elevateEdgesOnSelect={false}
+          nodesDraggable={false}
+          nodesConnectable={!isReadOnly}
         >
-          <RF.ControlButton
-            onClick={() => setMinimapVisible(!minimapVisible)}
-            aria-label={minimapVisible ? t("aria.minimap.hide") : t("aria.minimap.show")}
+          {minimapVisible && (
+            <RF.MiniMap pannable zoomable position={"bottom-left"} maskStrokeWidth={2} />
+          )}
+
+          <RF.Panel position="top-right">
+            <SidePanelTrigger />
+          </RF.Panel>
+
+          <RF.Controls
+            fitViewOptions={FIT_VIEW_OPTIONS}
+            position={"bottom-right"}
+            showInteractive={false}
           >
-            M
-          </RF.ControlButton>
-        </RF.Controls>
-        <RF.Background className="diagram-background" variant={RF.BackgroundVariant.Dots} />
-      </RF.ReactFlow>
+            <RF.ControlButton
+              onClick={() => setMinimapVisible(!minimapVisible)}
+              aria-label={minimapVisible ? t("aria.minimap.hide") : t("aria.minimap.show")}
+            >
+              M
+            </RF.ControlButton>
+          </RF.Controls>
+          <RF.Background className="diagram-background" variant={RF.BackgroundVariant.Dots} />
+        </RF.ReactFlow>
+      )}
     </div>
   );
 };

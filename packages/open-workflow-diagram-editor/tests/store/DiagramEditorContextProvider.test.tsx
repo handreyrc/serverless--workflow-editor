@@ -76,8 +76,9 @@ describe("DiagramEditorContextProvider Component", () => {
     expect(readOnlyElement).toHaveTextContent(/true/i);
     expect(readOnlyLocale).toHaveTextContent(/en/i);
 
-    // Only one rendering cycle is expected
-    expect(renderCount).toHaveTextContent(/1/i);
+    // Two rendering cycles are expected:
+    // 1- initial render, 2- useEffect seeding history from parsedModel
+    expect(renderCount).toHaveTextContent(/2/i);
   });
 
   it("Context provider props changes shall cause internal component to reload", async () => {
@@ -108,8 +109,10 @@ describe("DiagramEditorContextProvider Component", () => {
     expect(readOnlyElementChanged).toHaveTextContent(/false/i);
     expect(readOnlyLocaleChanged).toHaveTextContent(/pt/i);
 
-    // 3 rendering cycles are expected 1- first render, 2- forced by rerender and 3- caused by state updates
-    expect(renderCount).toHaveTextContent(/3/i);
+    // 4 rendering cycles are expected:
+    // 1- initial render, 2- history seed useEffect,
+    // 3- forced by rerender, 4- state updates from isReadOnly/locale change
+    expect(renderCount).toHaveTextContent(/4/i);
   });
 
   it("Context provider same props shall not cause internal component to reload", async () => {
@@ -140,8 +143,9 @@ describe("DiagramEditorContextProvider Component", () => {
     expect(readOnlyElementChanged).toHaveTextContent(/true/i);
     expect(readOnlyLocaleChanged).toHaveTextContent(/en/i);
 
-    // 2 rendering cycles are expected 1- first render and 2- forced by rerender
-    expect(renderCount).toHaveTextContent(/2/i);
+    // 3 rendering cycles are expected:
+    // 1- initial render, 2- history seed useEffect, 3- forced by rerender (same props, no state change)
+    expect(renderCount).toHaveTextContent(/3/i);
   });
 
   it("Parses valid workflow content into model with no errors", async () => {

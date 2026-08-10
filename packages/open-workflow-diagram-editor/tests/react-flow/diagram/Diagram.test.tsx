@@ -87,14 +87,10 @@ describe("Diagram Component", () => {
   it("render Diagram component and canvas", async () => {
     renderDiagram({ isReadOnly: true });
 
-    const diagram = screen.getByTestId("diagram-container");
-    const canvas = screen.getByTestId("react-flow-canvas");
-
-    expect(diagram).toBeInTheDocument();
-    expect(canvas).toBeInTheDocument();
-
-    // Verify that applyAutoLayout was called
+    // diagram-container is always present; canvas mounts after first layout completes.
+    expect(screen.getByTestId("diagram-container")).toBeInTheDocument();
     await waitFor(() => {
+      expect(screen.getByTestId("react-flow-canvas")).toBeInTheDocument();
       expect(applyAutoLayoutSpy).toHaveBeenCalled();
     });
   });
@@ -128,18 +124,11 @@ describe("Diagram Component", () => {
   it("should disable node interaction when isReadOnly is true", async () => {
     renderDiagram({ isReadOnly: true });
 
-    const diagram = screen.getByTestId("diagram-container");
+    expect(screen.getByTestId("diagram-container")).toHaveClass("read-only");
 
-    // Verify that the read-only class is applied
-    // This class applies CSS rule: .read-only .react-flow__handle { visibility: hidden !important; }
-    expect(diagram).toHaveClass("read-only");
-
-    // Verify ReactFlow canvas is rendered
-    const canvas = screen.getByTestId("react-flow-canvas");
-    expect(canvas).toBeInTheDocument();
-
-    // Wait for ReactFlow to be called
+    // Canvas mounts after layout — wait for it.
     await waitFor(() => {
+      expect(screen.getByTestId("react-flow-canvas")).toBeInTheDocument();
       expect(ReactFlow).toHaveBeenCalled();
     });
 
@@ -159,17 +148,11 @@ describe("Diagram Component", () => {
   it("should enable node interaction when isReadOnly is false", async () => {
     renderDiagram({ isReadOnly: false });
 
-    const diagram = screen.getByTestId("diagram-container");
+    expect(screen.getByTestId("diagram-container")).not.toHaveClass("read-only");
 
-    // Verify that the read-only class is not applied
-    expect(diagram).not.toHaveClass("read-only");
-
-    // Verify ReactFlow canvas is rendered
-    const canvas = screen.getByTestId("react-flow-canvas");
-    expect(canvas).toBeInTheDocument();
-
-    // Wait for ReactFlow to be called
+    // Canvas mounts after layout — wait for it.
     await waitFor(() => {
+      expect(screen.getByTestId("react-flow-canvas")).toBeInTheDocument();
       expect(ReactFlow).toHaveBeenCalled();
     });
 
