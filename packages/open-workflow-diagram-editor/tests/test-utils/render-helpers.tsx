@@ -40,7 +40,6 @@ export const createMockContextValue = (
   edges: [],
   taskReferences: new Set(),
   selectedNodeId: null,
-  setIsReadOnly: noop,
   setLocale: noop,
   setEdges: noop,
   setNodes: noop,

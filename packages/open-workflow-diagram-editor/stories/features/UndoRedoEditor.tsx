@@ -86,8 +86,8 @@ export type UndoRedoEditorProps = DiagramEditorProps & {
 /**
  * Story wrapper that exposes `undo` and `redo` via the `DiagramEditorRef`.
  *
- * The ref is published on `window.diagramEditor` so you can call
- * `diagramEditor.undo()` and `diagramEditor.redo()` from the browser console.
+ * The ref object is published on `window.diagramEditorRef` so you can call
+ * `diagramEditorRef.current?.undo()` and `diagramEditorRef.current?.redo()` from the browser console.
  *
  * A small toolbar above the diagram provides clickable Undo / Redo buttons.
  */
@@ -130,11 +130,11 @@ export const UndoRedoEditor = ({ onContentChange, ...props }: UndoRedoEditorProp
 
   // Expose ref on the window object for browser-console access.
   useEffect(() => {
-    (window as unknown as Record<string, unknown>).diagramEditor = editorRef.current;
+    (window as unknown as Record<string, unknown>).diagramEditorRef = editorRef;
     return () => {
-      delete (window as unknown as Record<string, unknown>).diagramEditor;
+      delete (window as unknown as Record<string, unknown>).diagramEditorRef;
     };
-  });
+  }, []);
 
   const buttonStyle = (disabled: boolean): React.CSSProperties => ({
     ...baseButtonStyle,

@@ -186,7 +186,7 @@ const handleSetContent = (newContent: string) => {
 
 ### Calling the API from the browser console
 
-This story publishes the editor ref on \`window.diagramEditor\` so you can
+This story publishes the editor ref object on \`window.diagramEditorRef\` so you can
 exercise the full API directly from the browser DevTools console **without
 writing any code**:
 
@@ -199,18 +199,18 @@ writing any code**:
 
 \`\`\`js
 // Step back / forward through history:
-diagramEditor.undo();
-diagramEditor.redo();
+diagramEditorRef.current.undo();
+diagramEditorRef.current.redo();
 
 // Check whether undo/redo is available:
-diagramEditor.canUndo; // boolean
-diagramEditor.canRedo; // boolean
+diagramEditorRef.current.canUndo; // boolean
+diagramEditorRef.current.canRedo; // boolean
 
 // Read the current workflow (YAML or JSON, matching the original input):
-diagramEditor.getContent();
+diagramEditorRef.current.getContent();
 
 // Replace the diagram content programmatically (YAML or JSON):
-diagramEditor.setContent(\`
+diagramEditorRef.current.setContent(\`
 document: "1.0.0"
 name: console-test
 do:

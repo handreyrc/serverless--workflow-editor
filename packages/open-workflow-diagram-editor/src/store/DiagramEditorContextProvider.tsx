@@ -27,9 +27,7 @@ import {
 import type * as RF from "@xyflow/react";
 import { useWorkflowHistory } from "../react-flow/hooks/useWorkflowHistory";
 
-export type ContextProviderProps = Omit<DiagramEditorProps, "ref"> & {
-  ref?: React.Ref<DiagramEditorRef> | undefined;
-};
+export type ContextProviderProps = DiagramEditorProps;
 
 /**
  * Resolves the currently selected node/edge ID against a new model.
@@ -43,10 +41,10 @@ function resolveSelectedId(model: Specification.Workflow, currentId: string | nu
     : null;
 }
 
-export const DiagramEditorContextProvider = ({
-  ref,
-  ...props
-}: React.PropsWithChildren<ContextProviderProps>) => {
+export const DiagramEditorContextProvider = React.forwardRef<
+  DiagramEditorRef,
+  React.PropsWithChildren<ContextProviderProps>
+>((props, ref) => {
   // Detect the serialization format once from the initial content prop.
   // JSON content starts with `{` (after trimming); everything else is YAML.
   // We use a ref so the format is fixed at mount time and never flips mid-session
@@ -190,9 +188,6 @@ export const DiagramEditorContextProvider = ({
       edges,
       taskReferences,
       selectedNodeId,
-      // setIsReadOnly is intentionally inoperative: isReadOnly is driven by
-      // props, not internal state, so there is no local setter to dispatch to.
-      setIsReadOnly: () => {},
       setLocale,
       setNodes,
       setEdges,
@@ -235,4 +230,4 @@ export const DiagramEditorContextProvider = ({
   return (
     <DiagramEditorContext.Provider value={context}>{props.children}</DiagramEditorContext.Provider>
   );
-};
+});

@@ -47,10 +47,11 @@ import { Toaster } from "@/components/ui/sonner";
  * prop changes to keep toolbar or menu items in sync.
  *
  * **`getContent()`** — Returns the current workflow serialised back to a
- * string. The format (YAML or JSON) matches whatever the host passed as the
- * initial `content` prop — it is fixed at mount time and never changes, so
- * undo/redo always round-trips in the original format. Returns `""` when no
- * valid model has been loaded yet.
+ * string. The format (YAML or JSON) tracks the most recently successfully
+ * loaded content: it starts as the format of the initial `content` prop and
+ * updates whenever `setContent()` loads a new string, so undo/redo always
+ * round-trips in the format of the last successfully loaded content.
+ * Returns `""` when no valid model has been loaded yet.
  */
 export type DiagramEditorRef = {
   /** Step back one history entry. No-op if there is nothing to undo. */
@@ -62,8 +63,9 @@ export type DiagramEditorRef = {
   /** `true` when there is at least one future entry that can be redone. */
   canRedo: boolean;
   /**
-   * Serialise the current model to a string in the same format (YAML or JSON)
-   * as the initial `content` prop. Returns `""` when no model is loaded.
+   * Serialise the current model to a string in the format (YAML or JSON) of
+   * the most recently successfully loaded content. Returns `""` when no model
+   * is loaded.
    */
   getContent: () => string;
   /**
@@ -95,8 +97,6 @@ export type DiagramEditorProps = {
    * aria-labels and any localised text inside the editor.
    */
   locale: string;
-  /** Attach an imperative ref to access `undo`, `redo`, `canUndo`, `canRedo`, `getContent`, and `setContent`. */
-  ref?: React.Ref<DiagramEditorRef>;
   /**
    * Colour scheme. `"light"` | `"dark"` | `"system"` (default).
    * `"system"` follows the OS/browser preference via `prefers-color-scheme`.
@@ -127,10 +127,12 @@ const DiagramEditorBody = ({
   diagramDivRef,
   resolvedColorMode,
   props,
+  editorRef,
 }: {
   diagramDivRef: React.RefObject<HTMLDivElement | null>;
   resolvedColorMode: ResolvedColorMode;
   props: DiagramEditorProps;
+  editorRef: React.ForwardedRef<DiagramEditorRef>;
 }) => {
   const { t } = useI18n();
   const errorBoundaryProps = {
@@ -141,7 +143,7 @@ const DiagramEditorBody = ({
     <DiagramEditorErrorBoundary {...errorBoundaryProps} resetKey={props.content}>
       <ReactFlowProvider>
         <DiagramEditorContextProvider
-          ref={props.ref}
+          ref={editorRef}
           content={props.content}
           isReadOnly={props.isReadOnly}
           locale={props.locale}
@@ -158,29 +160,32 @@ const DiagramEditorBody = ({
   );
 };
 
-export const DiagramEditor = (props: DiagramEditorProps) => {
-  const diagramDivRef = React.useRef<HTMLDivElement | null>(null);
-  const locale = React.useMemo(() => {
-    const supportedLocales = Object.keys(dictionaries);
-    return props.locale ?? detectLocale(supportedLocales);
-  }, [props.locale]);
-  const colorMode: ColorMode = props.colorMode ?? "system";
-  const resolvedColorMode = useResolvedColorMode(colorMode);
+export const DiagramEditor = React.forwardRef<DiagramEditorRef, DiagramEditorProps>(
+  (props, ref) => {
+    const diagramDivRef = React.useRef<HTMLDivElement | null>(null);
+    const locale = React.useMemo(() => {
+      const supportedLocales = Object.keys(dictionaries);
+      return props.locale ?? detectLocale(supportedLocales);
+    }, [props.locale]);
+    const colorMode: ColorMode = props.colorMode ?? "system";
+    const resolvedColorMode = useResolvedColorMode(colorMode);
 
-  return (
-    <div
-      className={`dec-root${resolvedColorMode === "dark" ? " dark" : ""}`}
-      lang={locale}
-      data-testid={"dec-root"}
-    >
-      <I18nProvider locale={locale} dictionaries={dictionaries}>
-        <DiagramEditorBody
-          diagramDivRef={diagramDivRef}
-          resolvedColorMode={resolvedColorMode}
-          props={props}
-        />
-      </I18nProvider>
-      <Toaster theme={resolvedColorMode} />
-    </div>
-  );
-};
+    return (
+      <div
+        className={`dec-root${resolvedColorMode === "dark" ? " dark" : ""}`}
+        lang={locale}
+        data-testid={"dec-root"}
+      >
+        <I18nProvider locale={locale} dictionaries={dictionaries}>
+          <DiagramEditorBody
+            diagramDivRef={diagramDivRef}
+            resolvedColorMode={resolvedColorMode}
+            props={props}
+            editorRef={ref}
+          />
+        </I18nProvider>
+        <Toaster theme={resolvedColorMode} />
+      </div>
+    );
+  },
+);

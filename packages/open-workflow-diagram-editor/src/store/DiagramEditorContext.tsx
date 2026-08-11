@@ -32,7 +32,6 @@ export type DiagramEditorContextType = {
   taskReferences: Set<string>;
   selectedNodeId: string | null;
 
-  setIsReadOnly: React.Dispatch<React.SetStateAction<boolean>>;
   setLocale: React.Dispatch<React.SetStateAction<string>>;
   setNodes: React.Dispatch<React.SetStateAction<RF.Node[]>>;
   setEdges: React.Dispatch<React.SetStateAction<RF.Edge[]>>;
