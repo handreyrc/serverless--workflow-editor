@@ -23,13 +23,34 @@ import * as React from "react";
 export const HISTORY_STACK_SIZE = 10;
 
 export type HistoryState<T> = {
-  /** Past snapshots, oldest first. Length is capped at HISTORY_STACK_SIZE. */
-  past: T[];
-  /** The current snapshot. Null when the history has not been initialised yet. */
-  present: T | null;
-  /** Future snapshots available for redo. Index 0 is the most recently undone entry. */
-  future: T[];
+  /**
+   * Flat array of all snapshots.
+   * Entries before `presentIndex` are past; entries after are future.
+   * The total number of past entries is capped at HISTORY_STACK_SIZE
+   * (i.e. presentIndex <= HISTORY_STACK_SIZE at all times).
+   */
+  history: T[];
+  /**
+   * Index of the current snapshot within `history`.
+   * -1 when the history has not been initialised yet (present is null).
+   */
+  presentIndex: number;
 };
+
+/** Convenience accessor — null before the first push. */
+export function getPresent<T>(state: HistoryState<T>): T | null {
+  return state.presentIndex === -1 ? null : (state.history[state.presentIndex] ?? null);
+}
+
+/** Convenience accessor — entries before the present, oldest first. */
+export function getPast<T>(state: HistoryState<T>): T[] {
+  return state.presentIndex <= 0 ? [] : state.history.slice(0, state.presentIndex);
+}
+
+/** Convenience accessor — entries after the present, most-recently-undone first. */
+export function getFuture<T>(state: HistoryState<T>): T[] {
+  return state.presentIndex === -1 ? [] : state.history.slice(state.presentIndex + 1);
+}
 
 type HistoryAction<T> =
   | { type: "PUSH"; payload: T }
@@ -37,66 +58,47 @@ type HistoryAction<T> =
   | { type: "UNDO" }
   | { type: "REDO" };
 
-/**
- * Appends `entry` to `past`, evicting the oldest entry when the stack cap is reached.
- * Used by both PUSH and REDO to keep the capping logic in one place.
- */
-function appendCapped<T>(past: T[], entry: T): T[] {
-  return [...(past.length >= HISTORY_STACK_SIZE ? past.slice(1) : past), entry];
-}
-
 export function historyReducer<T>(
   state: HistoryState<T>,
   action: HistoryAction<T>,
 ): HistoryState<T> {
   switch (action.type) {
     case "PUSH": {
-      // Discard the future (branch pruning).
-      // If present is non-null, move it into past (capped).
-      const newPast = state.present !== null ? appendCapped(state.past, state.present) : state.past;
+      // Truncate any future entries (branch pruning).
+      const withoutFuture = state.history.slice(0, state.presentIndex + 1);
+
+      // Enforce the past cap: past length = presentIndex, so if it is already
+      // at the cap we evict the oldest entry before appending.
+      const capped =
+        withoutFuture.length > HISTORY_STACK_SIZE ? withoutFuture.slice(1) : withoutFuture;
 
       return {
-        past: newPast,
-        present: action.payload,
-        future: [],
+        history: [...capped, action.payload],
+        presentIndex: capped.length, // new entry is always at the end
       };
     }
 
     case "SET_PRESENT": {
-      // Replace present without touching past or future.
-      // Used in read-only mode so the diagram renders new content
-      // without creating any undoable history entry.
-      return { ...state, present: action.payload };
+      // Replace present in-place without touching past or future.
+      if (state.presentIndex === -1) {
+        // Uninitialised — treat identically to the first PUSH.
+        return { history: [action.payload], presentIndex: 0 };
+      }
+      const next = [...state.history];
+      next[state.presentIndex] = action.payload;
+      return { history: next, presentIndex: state.presentIndex };
     }
 
     case "UNDO": {
       // Guard: nothing to undo.
-      if (state.past.length === 0) return state;
-
-      const previous = state.past[state.past.length - 1]!;
-      const newPast = state.past.slice(0, -1);
-      const newFuture = state.present !== null ? [state.present, ...state.future] : state.future;
-
-      return {
-        past: newPast,
-        present: previous,
-        future: newFuture,
-      };
+      if (state.presentIndex <= 0) return state;
+      return { ...state, presentIndex: state.presentIndex - 1 };
     }
 
     case "REDO": {
       // Guard: nothing to redo.
-      if (state.future.length === 0) return state;
-
-      const next = state.future[0]!;
-      const newFuture = state.future.slice(1);
-      const newPast = state.present !== null ? appendCapped(state.past, state.present) : state.past;
-
-      return {
-        past: newPast,
-        present: next,
-        future: newFuture,
-      };
+      if (state.presentIndex >= state.history.length - 1) return state;
+      return { ...state, presentIndex: state.presentIndex + 1 };
     }
 
     default:
@@ -105,9 +107,8 @@ export function historyReducer<T>(
 }
 
 const initialHistoryState = <T>(): HistoryState<T> => ({
-  past: [],
-  present: null,
-  future: [],
+  history: [],
+  presentIndex: -1,
 });
 
 export type UseHistoryReturn<T> = {
@@ -121,8 +122,9 @@ export type UseHistoryReturn<T> = {
 };
 
 /**
- * Generic past/present/future history hook backed by useReducer.
- * Starts uninitialised (present = null). The first push sets the
+ * Generic history hook backed by useReducer.
+ * Uses a single flat array + a cursor index instead of three separate arrays.
+ * Starts uninitialised (presentIndex = -1). The first push sets the
  * initial present without adding a past entry.
  */
 export function useHistory<T>(): UseHistoryReturn<T> {
@@ -154,7 +156,7 @@ export function useHistory<T>(): UseHistoryReturn<T> {
     setPresent,
     undo,
     redo,
-    canUndo: state.past.length > 0,
-    canRedo: state.future.length > 0,
+    canUndo: state.presentIndex > 0,
+    canRedo: state.presentIndex < state.history.length - 1,
   };
 }

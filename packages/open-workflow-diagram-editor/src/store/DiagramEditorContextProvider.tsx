@@ -82,22 +82,23 @@ export const DiagramEditorContextProvider = React.forwardRef<
     clearPendingViewportRestore,
   } = useWorkflowHistory(isReadOnly);
 
-  // parseWorkflow drives both errors and the external-content model source.
-  // errors are never part of a snapshot — always recomputed from current content.
-  const { model: parsedModel, errors } = React.useMemo(
-    () => parseWorkflow(props.content),
-    [props.content],
+  // errors are shared state written by both the props.content path and setContent.
+  // They are never part of a history snapshot — always reflect the last parse result.
+  const [errors, setErrors] = React.useState<ReturnType<typeof parseWorkflow>["errors"]>(
+    () => parseWorkflow(props.content).errors,
   );
 
-  // Seed history from the external content prop using seedModel (bypasses isReadOnly guard).
-  // The real viewport is set by Diagram.tsx once layout completes in edit mode.
-  // In read-only mode the placeholder viewport is acceptable since fitView always runs.
   // Keep a ref to the latest selectedNodeId so the effect below can read it
   // synchronously without taking it as a dependency (avoids re-seeding on every click).
   const selectedNodeIdRef = React.useRef<string | null>(selectedNodeId);
   selectedNodeIdRef.current = selectedNodeId;
 
+  // Seed history from the external content prop using seedModel (bypasses isReadOnly guard).
+  // The real viewport is set by Diagram.tsx once layout completes in edit mode.
+  // In read-only mode the placeholder viewport is acceptable since fitView always runs.
   React.useEffect(() => {
+    const { model: parsedModel, errors: parsedErrors } = parseWorkflow(props.content);
+    setErrors(parsedErrors);
     if (parsedModel === null) {
       // Null model is never stored in history.
       return;
@@ -114,7 +115,7 @@ export const DiagramEditorContextProvider = React.forwardRef<
     // - selectedNodeIdRef is a ref (stable, mutated inline — not a dep by convention)
     // - seedModel is a useCallback with stable identity; including it would re-seed on
     //   every selection change because its deps would change too
-  }, [parsedModel]);
+  }, [props.content]);
 
   const taskReferences = React.useMemo(
     () => (model ? getTaskReferences(buildFlatGraph(model)) : new Set<string>()),
@@ -132,8 +133,10 @@ export const DiagramEditorContextProvider = React.forwardRef<
    */
   const setContent = React.useCallback(
     (content: string) => {
-      const { model: newModel } = parseWorkflow(content);
+      const { model: newModel, errors: newErrors } = parseWorkflow(content);
       if (newModel === null) return;
+
+      setErrors(newErrors);
 
       const newFormat: ContentFormat = content.trimStart().startsWith("{") ? "json" : "yaml";
       if (newFormat !== contentFormat.current) {

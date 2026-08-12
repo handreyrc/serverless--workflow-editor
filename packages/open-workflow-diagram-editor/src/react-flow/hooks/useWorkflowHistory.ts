@@ -18,7 +18,7 @@ import * as React from "react";
 import type * as RF from "@xyflow/react";
 import type { Specification } from "@openworkflowspec/sdk";
 import { structuralEqual } from "../../core/hooks/structuralEqual";
-import { useHistory } from "./useHistory";
+import { useHistory, getPresent, getPast, getFuture } from "./useHistory";
 
 /**
  * One atomic history entry capturing the full editor state at a point in time.
@@ -98,7 +98,7 @@ export function useWorkflowHistory(isReadOnly: boolean): UseWorkflowHistoryRetur
       // Null model is never stored in history.
       if (newModel == null) return;
 
-      const present = stateRef.current.present;
+      const present = getPresent(stateRef.current);
 
       // In read-only mode, update present so the diagram renders the new
       // content, but leave past and future untouched (no undoable history entry).
@@ -131,7 +131,7 @@ export function useWorkflowHistory(isReadOnly: boolean): UseWorkflowHistoryRetur
       // Null model is never stored in history.
       if (newModel == null) return;
 
-      const present = stateRef.current.present;
+      const present = getPresent(stateRef.current);
 
       // First load — no present yet. Set it without creating a past entry.
       if (present === null) {
@@ -161,7 +161,7 @@ export function useWorkflowHistory(isReadOnly: boolean): UseWorkflowHistoryRetur
 
   const undo = React.useCallback(
     (setSelectedNodeId: React.Dispatch<React.SetStateAction<string | null>>) => {
-      const { past } = stateRef.current;
+      const past = getPast(stateRef.current);
       if (isReadOnlyRef.current || past.length === 0) return;
       // Read target snapshot before dispatching (reducer is synchronous).
       const target = past[past.length - 1]!;
@@ -175,7 +175,7 @@ export function useWorkflowHistory(isReadOnly: boolean): UseWorkflowHistoryRetur
 
   const redo = React.useCallback(
     (setSelectedNodeId: React.Dispatch<React.SetStateAction<string | null>>) => {
-      const { future } = stateRef.current;
+      const future = getFuture(stateRef.current);
       if (isReadOnlyRef.current || future.length === 0) return;
       // Read target snapshot before dispatching.
       const target = future[0]!;
@@ -191,8 +191,8 @@ export function useWorkflowHistory(isReadOnly: boolean): UseWorkflowHistoryRetur
   }, []);
 
   return {
-    model: state.present?.model ?? null,
-    selectedNodeId: state.present?.selectedNodeId ?? null,
+    model: getPresent(state)?.model ?? null,
+    selectedNodeId: getPresent(state)?.selectedNodeId ?? null,
     seedModel,
     submitModel,
     undo,

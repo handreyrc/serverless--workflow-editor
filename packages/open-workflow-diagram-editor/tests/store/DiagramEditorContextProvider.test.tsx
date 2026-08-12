@@ -15,10 +15,11 @@
  */
 
 import * as React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { vi, expect, afterEach, describe, it } from "vitest";
 import { useDiagramEditorContext } from "../../src/store/DiagramEditorContext";
 import { DiagramEditorContextProvider } from "../../src/store/DiagramEditorContextProvider";
+import type { DiagramEditorRef } from "../../src/diagram-editor/DiagramEditor";
 import {
   BASIC_INVALID_WORKFLOW_YAML,
   BASIC_VALID_WORKFLOW_JSON,
@@ -263,6 +264,65 @@ describe("DiagramEditorContextProvider Component", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("selected-node")).toHaveTextContent("null");
+    });
+  });
+
+  it("setContent propagates validation errors into context errors state", async () => {
+    const ref = React.createRef<DiagramEditorRef>();
+
+    render(
+      <DiagramEditorContextProvider
+        ref={ref}
+        content={BASIC_VALID_WORKFLOW_YAML}
+        isReadOnly={false}
+        locale="en"
+      >
+        <TestComponent />
+      </DiagramEditorContextProvider>,
+    );
+
+    // Wait for initial valid workflow — zero errors.
+    await waitFor(() => {
+      expect(screen.getByTestId("test-errors")).toHaveTextContent("0");
+    });
+
+    // Call setContent with a parseable-but-invalid workflow.
+    // Before the fix, the errors returned by parseWorkflow inside setContent were
+    // discarded, so the context errors count stayed at 0.
+    act(() => {
+      ref.current?.setContent(BASIC_INVALID_WORKFLOW_YAML);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("test-errors")).toHaveTextContent("1");
+    });
+  });
+
+  it("setContent clears stale errors when a valid workflow replaces an invalid one", async () => {
+    const ref = React.createRef<DiagramEditorRef>();
+
+    render(
+      <DiagramEditorContextProvider
+        ref={ref}
+        content={BASIC_INVALID_WORKFLOW_YAML}
+        isReadOnly={false}
+        locale="en"
+      >
+        <TestComponent />
+      </DiagramEditorContextProvider>,
+    );
+
+    // Initial content is invalid — errors must be present.
+    await waitFor(() => {
+      expect(screen.getByTestId("test-errors")).toHaveTextContent("1");
+    });
+
+    act(() => {
+      ref.current?.setContent(BASIC_VALID_WORKFLOW_YAML);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("test-errors")).toHaveTextContent("0");
     });
   });
 });

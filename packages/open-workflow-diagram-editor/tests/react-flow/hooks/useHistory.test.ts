@@ -20,12 +20,15 @@ import {
   HISTORY_STACK_SIZE,
   historyReducer,
   useHistory,
+  getPresent,
+  getPast,
+  getFuture,
 } from "../../../src/react-flow/hooks/useHistory";
 import type { HistoryState } from "../../../src/react-flow/hooks/useHistory";
 
 type S = string; // Use plain strings as the snapshot type for simplicity.
 
-const empty: HistoryState<S> = { past: [], present: null, future: [] };
+const empty: HistoryState<S> = { history: [], presentIndex: -1 };
 
 // ---------------------------------------------------------------------------
 // historyReducer — pure function tests
@@ -35,124 +38,117 @@ describe("historyReducer", () => {
   describe("PUSH", () => {
     it("sets present when starting from null — no past entry created", () => {
       const next = historyReducer(empty, { type: "PUSH", payload: "a" });
-      expect(next.present).toBe("a");
-      expect(next.past).toHaveLength(0);
-      expect(next.future).toHaveLength(0);
+      expect(getPresent(next)).toBe("a");
+      expect(getPast(next)).toHaveLength(0);
+      expect(getFuture(next)).toHaveLength(0);
     });
 
     it("moves current present to past and sets new payload as present", () => {
-      const state: HistoryState<S> = { past: [], present: "a", future: [] };
+      const state: HistoryState<S> = { history: ["a"], presentIndex: 0 };
       const next = historyReducer(state, { type: "PUSH", payload: "b" });
-      expect(next.present).toBe("b");
-      expect(next.past).toEqual(["a"]);
-      expect(next.future).toHaveLength(0);
+      expect(getPresent(next)).toBe("b");
+      expect(getPast(next)).toEqual(["a"]);
+      expect(getFuture(next)).toHaveLength(0);
     });
 
     it("discards future (branch pruning — REQ-05)", () => {
-      const state: HistoryState<S> = {
-        past: ["a"],
-        present: "b",
-        future: ["c", "d"],
-      };
+      const state: HistoryState<S> = { history: ["a", "b", "c", "d"], presentIndex: 1 };
       const next = historyReducer(state, { type: "PUSH", payload: "e" });
-      expect(next.future).toHaveLength(0);
-      expect(next.present).toBe("e");
-      expect(next.past).toEqual(["a", "b"]);
+      expect(getFuture(next)).toHaveLength(0);
+      expect(getPresent(next)).toBe("e");
+      expect(getPast(next)).toEqual(["a", "b"]);
     });
 
     it("evicts oldest past entry when cap is reached (REQ-04)", () => {
       const past = Array.from({ length: HISTORY_STACK_SIZE }, (_, i) => `s${i}`);
-      const state: HistoryState<S> = { past, present: "current", future: [] };
+      const state: HistoryState<S> = {
+        history: [...past, "current"],
+        presentIndex: HISTORY_STACK_SIZE,
+      };
       const next = historyReducer(state, { type: "PUSH", payload: "new" });
-      expect(next.past).toHaveLength(HISTORY_STACK_SIZE);
-      expect(next.past[0]).toBe("s1"); // oldest evicted
-      expect(next.past[HISTORY_STACK_SIZE - 1]).toBe("current");
-      expect(next.present).toBe("new");
+      expect(getPast(next)).toHaveLength(HISTORY_STACK_SIZE);
+      expect(getPast(next)[0]).toBe("s1"); // oldest evicted
+      expect(getPast(next)[HISTORY_STACK_SIZE - 1]).toBe("current");
+      expect(getPresent(next)).toBe("new");
     });
   });
 
   describe("SET_PRESENT", () => {
     it("replaces present without touching past or future", () => {
-      const state: HistoryState<S> = { past: ["a"], present: "b", future: ["c"] };
+      const state: HistoryState<S> = { history: ["a", "b", "c"], presentIndex: 1 };
       const next = historyReducer(state, { type: "SET_PRESENT", payload: "z" });
-      expect(next.present).toBe("z");
-      expect(next.past).toEqual(["a"]);
-      expect(next.future).toEqual(["c"]);
+      expect(getPresent(next)).toBe("z");
+      expect(getPast(next)).toEqual(["a"]);
+      expect(getFuture(next)).toEqual(["c"]);
     });
 
     it("works from a null present", () => {
       const next = historyReducer(empty, { type: "SET_PRESENT", payload: "z" });
-      expect(next.present).toBe("z");
-      expect(next.past).toHaveLength(0);
-      expect(next.future).toHaveLength(0);
+      expect(getPresent(next)).toBe("z");
+      expect(getPast(next)).toHaveLength(0);
+      expect(getFuture(next)).toHaveLength(0);
     });
   });
 
   describe("UNDO", () => {
     it("is a no-op when past is empty", () => {
-      const state: HistoryState<S> = { past: [], present: "a", future: [] };
+      const state: HistoryState<S> = { history: ["a"], presentIndex: 0 };
       const next = historyReducer(state, { type: "UNDO" });
       expect(next).toBe(state); // same reference — no change
     });
 
     it("moves present to front of future and pops last past as present", () => {
-      const state: HistoryState<S> = {
-        past: ["a", "b"],
-        present: "c",
-        future: ["d"],
-      };
+      const state: HistoryState<S> = { history: ["a", "b", "c", "d"], presentIndex: 2 };
       const next = historyReducer(state, { type: "UNDO" });
-      expect(next.present).toBe("b");
-      expect(next.past).toEqual(["a"]);
-      expect(next.future).toEqual(["c", "d"]);
+      expect(getPresent(next)).toBe("b");
+      expect(getPast(next)).toEqual(["a"]);
+      expect(getFuture(next)).toEqual(["c", "d"]);
     });
   });
 
   describe("REDO", () => {
     it("is a no-op when future is empty", () => {
-      const state: HistoryState<S> = { past: ["a"], present: "b", future: [] };
+      const state: HistoryState<S> = { history: ["a", "b"], presentIndex: 1 };
       const next = historyReducer(state, { type: "REDO" });
       expect(next).toBe(state); // same reference — no change
     });
 
     it("moves present to end of past and shifts first future as present", () => {
-      const state: HistoryState<S> = {
-        past: ["a"],
-        present: "b",
-        future: ["c", "d"],
-      };
+      const state: HistoryState<S> = { history: ["a", "b", "c", "d"], presentIndex: 1 };
       const next = historyReducer(state, { type: "REDO" });
-      expect(next.present).toBe("c");
-      expect(next.past).toEqual(["a", "b"]);
-      expect(next.future).toEqual(["d"]);
+      expect(getPresent(next)).toBe("c");
+      expect(getPast(next)).toEqual(["a", "b"]);
+      expect(getFuture(next)).toEqual(["d"]);
     });
 
-    it("evicts oldest past entry when cap is reached during redo", () => {
-      const past = Array.from({ length: HISTORY_STACK_SIZE }, (_, i) => `s${i}`);
-      const state: HistoryState<S> = { past, present: "current", future: ["next"] };
+    it("advances the cursor without touching the array", () => {
+      const state: HistoryState<S> = { history: ["a", "b", "c"], presentIndex: 1 };
       const next = historyReducer(state, { type: "REDO" });
-      expect(next.past).toHaveLength(HISTORY_STACK_SIZE);
-      expect(next.past[0]).toBe("s1"); // oldest evicted
-      expect(next.present).toBe("next");
+      // The array is unchanged; only the index advances.
+      expect(next.history).toBe(state.history);
+      expect(getPresent(next)).toBe("c");
+      expect(getPast(next)).toEqual(["a", "b"]);
+      expect(getFuture(next)).toHaveLength(0);
     });
   });
 
   describe("PUSH after UNDO (fork — REQ-05)", () => {
     it("discards all future entries when pushing after an undo", () => {
       // Start: a → b → c, undo twice → sitting at a with future [b, c]
-      let state: HistoryState<S> = { past: [], present: "a", future: [] };
+      let state: HistoryState<S> = { history: [], presentIndex: -1 };
+      state = historyReducer(state, { type: "PUSH", payload: "a" });
       state = historyReducer(state, { type: "PUSH", payload: "b" });
       state = historyReducer(state, { type: "PUSH", payload: "c" });
       state = historyReducer(state, { type: "UNDO" });
       state = historyReducer(state, { type: "UNDO" });
-      expect(state.present).toBe("a");
-      expect(state.future).toEqual(["b", "c"]);
+      expect(getPresent(state)).toBe("a");
+      expect(getFuture(state)).toEqual(["b", "c"]);
 
       // Now push a new entry — future must be discarded.
       state = historyReducer(state, { type: "PUSH", payload: "x" });
-      expect(state.present).toBe("x");
-      expect(state.past).toEqual(["a"]);
-      expect(state.future).toHaveLength(0);
+      expect(getPresent(state)).toBe("x");
+      expect(getPast(state)).toEqual(["a"]);
+      expect(getFuture(state)).toHaveLength(0);
     });
   });
 });
@@ -164,9 +160,9 @@ describe("historyReducer", () => {
 describe("useHistory hook", () => {
   it("initialises with null present, empty past and future", () => {
     const { result } = renderHook(() => useHistory<S>());
-    expect(result.current.state.present).toBeNull();
-    expect(result.current.state.past).toHaveLength(0);
-    expect(result.current.state.future).toHaveLength(0);
+    expect(getPresent(result.current.state)).toBeNull();
+    expect(getPast(result.current.state)).toHaveLength(0);
+    expect(getFuture(result.current.state)).toHaveLength(0);
     expect(result.current.canUndo).toBe(false);
     expect(result.current.canRedo).toBe(false);
   });
@@ -174,8 +170,8 @@ describe("useHistory hook", () => {
   it("push sets present without creating a past entry on first call", () => {
     const { result } = renderHook(() => useHistory<S>());
     act(() => result.current.push("a"));
-    expect(result.current.state.present).toBe("a");
-    expect(result.current.state.past).toHaveLength(0);
+    expect(getPresent(result.current.state)).toBe("a");
+    expect(getPast(result.current.state)).toHaveLength(0);
     expect(result.current.canUndo).toBe(false);
   });
 
@@ -183,8 +179,8 @@ describe("useHistory hook", () => {
     const { result } = renderHook(() => useHistory<S>());
     act(() => result.current.push("a"));
     act(() => result.current.push("b"));
-    expect(result.current.state.present).toBe("b");
-    expect(result.current.state.past).toEqual(["a"]);
+    expect(getPresent(result.current.state)).toBe("b");
+    expect(getPast(result.current.state)).toEqual(["a"]);
     expect(result.current.canUndo).toBe(true);
   });
 
@@ -193,9 +189,9 @@ describe("useHistory hook", () => {
     act(() => result.current.push("a"));
     act(() => result.current.push("b"));
     act(() => result.current.setPresent("z"));
-    expect(result.current.state.present).toBe("z");
-    expect(result.current.state.past).toEqual(["a"]);
-    expect(result.current.state.future).toHaveLength(0);
+    expect(getPresent(result.current.state)).toBe("z");
+    expect(getPast(result.current.state)).toEqual(["a"]);
+    expect(getFuture(result.current.state)).toHaveLength(0);
     expect(result.current.canUndo).toBe(true); // past unchanged
   });
 
@@ -203,7 +199,7 @@ describe("useHistory hook", () => {
     const { result } = renderHook(() => useHistory<S>());
     act(() => result.current.push("a"));
     act(() => result.current.undo());
-    expect(result.current.state.present).toBe("a"); // unchanged
+    expect(getPresent(result.current.state)).toBe("a"); // unchanged
     expect(result.current.canUndo).toBe(false);
   });
 
@@ -212,7 +208,7 @@ describe("useHistory hook", () => {
     act(() => result.current.push("a"));
     act(() => result.current.push("b"));
     act(() => result.current.undo());
-    expect(result.current.state.present).toBe("a");
+    expect(getPresent(result.current.state)).toBe("a");
     expect(result.current.canUndo).toBe(false);
     expect(result.current.canRedo).toBe(true);
   });
@@ -221,7 +217,7 @@ describe("useHistory hook", () => {
     const { result } = renderHook(() => useHistory<S>());
     act(() => result.current.push("a"));
     act(() => result.current.redo());
-    expect(result.current.state.present).toBe("a"); // unchanged
+    expect(getPresent(result.current.state)).toBe("a"); // unchanged
     expect(result.current.canRedo).toBe(false);
   });
 
@@ -231,7 +227,7 @@ describe("useHistory hook", () => {
     act(() => result.current.push("b"));
     act(() => result.current.undo());
     act(() => result.current.redo());
-    expect(result.current.state.present).toBe("b");
+    expect(getPresent(result.current.state)).toBe("b");
     expect(result.current.canUndo).toBe(true);
     expect(result.current.canRedo).toBe(false);
   });
