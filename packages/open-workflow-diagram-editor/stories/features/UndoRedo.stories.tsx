@@ -170,6 +170,7 @@ function UndoRedoStory({
   const applyModal = () => {
     editorRef.current?.setContent(modalText);
     setModalOpen(false);
+    undoRedoInFlight.current = true;
     setTimeout(syncHistory, 0);
   };
 
