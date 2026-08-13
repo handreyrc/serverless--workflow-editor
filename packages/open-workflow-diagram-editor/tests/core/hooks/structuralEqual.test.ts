@@ -16,7 +16,7 @@
 
 import { describe, it, expect } from "vitest";
 import { Classes, type Specification } from "@openworkflowspec/sdk";
-import { structuralEqual } from "../../../src/core/hooks/structuralEqual";
+import { structuralEqual } from "../../../src/core/structuralEqual";
 import {
   BASIC_VALID_WORKFLOW_JSON,
   BASIC_VALID_WORKFLOW_JSON_TASKS,

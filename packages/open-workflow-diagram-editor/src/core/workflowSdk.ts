@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-import { load } from "js-yaml";
+import { load, dump } from "js-yaml";
 import * as sdk from "@openworkflowspec/sdk";
 import { fixNodesConnections } from "./graph";
 import { stripSpecAheadOfSdkErrors } from "./specWorkarounds";
+
+export type ContentFormat = "json" | "yaml";
 
 /**
  * Sanitizes an object by removing dangerous prototype pollution keys
@@ -287,4 +289,17 @@ export function parseWorkflow(text: string): WorkflowParseResult {
 
 export function buildFlatGraph(model: sdk.Specification.Workflow): sdk.FlatGraph {
   return fixNodesConnections(sdk.buildFlatGraph(model));
+}
+
+export function serializeWorkflow(
+  model: sdk.Specification.Workflow,
+  format: ContentFormat,
+): string {
+  const workflow = model instanceof sdk.Classes.Workflow ? model : new sdk.Classes.Workflow(model);
+  if (format === "json") return workflow.serialize("json");
+  // SDK bug (v1.0.3-alpha6): instance.serialize("yaml") fails because normalize()
+  // returns a Workflow class instance and js-yaml rejects non-plain objects.
+  // Workaround: serialize to JSON first to get a plain object, then dump as YAML.
+  // TODO: Remove this workaround once the SDK is fixed.
+  return dump(JSON.parse(workflow.serialize("json")));
 }

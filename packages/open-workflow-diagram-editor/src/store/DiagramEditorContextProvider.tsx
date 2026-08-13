@@ -15,15 +15,16 @@
  */
 
 import * as React from "react";
-import { dump } from "js-yaml";
-import { buildFlatGraph, getTaskReferences, parseWorkflow } from "../core";
+import {
+  buildFlatGraph,
+  ContentFormat,
+  getTaskReferences,
+  parseWorkflow,
+  serializeWorkflow,
+} from "../core";
 import type { Specification } from "@openworkflowspec/sdk";
 import { DiagramEditorProps, DiagramEditorRef } from "../diagram-editor/DiagramEditor";
-import {
-  ContentFormat,
-  DiagramEditorContext,
-  DiagramEditorContextType,
-} from "./DiagramEditorContext";
+import { DiagramEditorContext, DiagramEditorContextType } from "./DiagramEditorContext";
 import type * as RF from "@xyflow/react";
 import { useWorkflowHistory } from "../react-flow/hooks/useWorkflowHistory";
 
@@ -164,10 +165,7 @@ export const DiagramEditorContextProvider = React.forwardRef<
 
   const getContent = React.useCallback(() => {
     if (!model) return "";
-    const plain = JSON.parse(JSON.stringify(model)) as Record<string, unknown>;
-    return contentFormat.current === "json"
-      ? JSON.stringify(plain, null, 2)
-      : dump(plain, { indent: 2, lineWidth: -1 });
+    return serializeWorkflow(model, contentFormat.current);
   }, [model]);
 
   React.useImperativeHandle(

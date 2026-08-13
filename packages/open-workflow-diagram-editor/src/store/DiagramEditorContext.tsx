@@ -17,9 +17,7 @@
 import type { Specification } from "@openworkflowspec/sdk";
 import * as React from "react";
 import type * as RF from "@xyflow/react";
-import type { SdkError } from "../core";
-
-export type ContentFormat = "json" | "yaml";
+import type { ContentFormat, SdkError } from "../core";
 
 export type DiagramEditorContextType = {
   isReadOnly: boolean;

@@ -27,6 +27,7 @@ import { buildDiagramElements } from "./diagramBuilder";
 import { applyAutoLayout } from "./autoLayout";
 import { SidePanelTrigger } from "@/side-panel/SidePanelTrigger";
 import { ZINDEX } from "../zIndexConstants";
+import { ErrorPage } from "../../diagram-editor/error-pages/ErrorPage";
 
 const FIT_VIEW_OPTIONS: RF.FitViewOptions = {
   maxZoom: 1,
@@ -65,6 +66,7 @@ export const Diagram = ({ divRef, colorMode = "light" }: DiagramProps) => {
   } = useDiagramEditorContext();
 
   const [minimapVisible, setMinimapVisible] = React.useState(false);
+  const [layoutError, setLayoutError] = React.useState<Error | null>(null);
 
   // Track whether fitView has run at least once in this edit session.
   const hasRunFitView = React.useRef<boolean>(false);
@@ -128,7 +130,7 @@ export const Diagram = ({ divRef, colorMode = "light" }: DiagramProps) => {
           if (error.name === "AbortError") {
             return;
           }
-          console.error("Failed to apply auto-layout:", error);
+          setLayoutError(error instanceof Error ? error : new Error(String(error)));
         });
     }, 100);
 
@@ -193,6 +195,16 @@ export const Diagram = ({ divRef, colorMode = "light" }: DiagramProps) => {
     clearPendingViewportRestore,
     layoutReady,
   ]);
+
+  if (layoutError) {
+    return (
+      <ErrorPage
+        title={t("workflowError.autoLayout.title")}
+        message={t("workflowError.autoLayout.message")}
+        snippet={layoutError.message}
+      />
+    );
+  }
 
   return (
     <div

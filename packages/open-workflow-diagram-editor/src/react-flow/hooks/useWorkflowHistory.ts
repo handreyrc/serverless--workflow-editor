@@ -17,7 +17,7 @@
 import * as React from "react";
 import type * as RF from "@xyflow/react";
 import type { Specification } from "@openworkflowspec/sdk";
-import { structuralEqual } from "../../core/hooks/structuralEqual";
+import { structuralEqual } from "../../core/structuralEqual";
 import { useHistory, getPresent, getPast, getFuture } from "./useHistory";
 
 /**

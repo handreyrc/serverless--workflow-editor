@@ -18,7 +18,7 @@ import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { Classes } from "@openworkflowspec/sdk";
 import { useWorkflowHistory } from "../../../src/react-flow/hooks/useWorkflowHistory";
-import { structuralEqual } from "../../../src/core/hooks/structuralEqual";
+import { structuralEqual } from "../../../src/core/structuralEqual";
 import {
   BASIC_VALID_WORKFLOW_JSON,
   BASIC_VALID_WORKFLOW_JSON_TASKS,
