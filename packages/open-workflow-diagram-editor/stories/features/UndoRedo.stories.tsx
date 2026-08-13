@@ -258,8 +258,8 @@ function UndoRedoStory({
     <>
       {/* Get Content modal */}
       {getContentOpen && (
-        <div style={overlayStyle} onMouseDown={() => setGetContentOpen(false)}>
-          <div style={dialogStyle} onMouseDown={(e) => e.stopPropagation()}>
+        <div style={overlayStyle} onMouseDown={() => setGetContentOpen(false)} role="presentation">
+          <div style={dialogStyle} onMouseDown={(e) => e.stopPropagation()} role="none">
             <div style={dialogHeaderStyle}>Get Content</div>
             <textarea
               style={{ ...textareaStyle, cursor: "default", userSelect: "text" }}
@@ -310,14 +310,15 @@ function UndoRedoStory({
 
       {/* Set Content modal */}
       {modalOpen && (
-        <div style={overlayStyle} onMouseDown={() => setModalOpen(false)}>
-          <div style={dialogStyle} onMouseDown={(e) => e.stopPropagation()}>
+        <div style={overlayStyle} onMouseDown={() => setModalOpen(false)} role="presentation">
+          <div style={dialogStyle} onMouseDown={(e) => e.stopPropagation()} role="none">
             <div style={dialogHeaderStyle}>Set Content</div>
             <textarea
               style={textareaStyle}
               value={modalText}
               onChange={(e) => setModalText(e.target.value)}
               spellCheck={false}
+              // oxlint-disable-next-line jsx-a11y/no-autofocus -- intentional focus on modal open for keyboard UX
               autoFocus
             />
             <div style={dialogFooterStyle}>

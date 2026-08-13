@@ -48,15 +48,11 @@ export const DiagramEditorContextProvider = React.forwardRef<
 >((props, ref) => {
   // Detect the serialization format once from the initial content prop.
   // JSON content starts with `{` (after trimming); everything else is YAML.
-  // We use a ref so the format is fixed at mount time and never flips mid-session
-  // (an undo/redo should round-trip back in the same format the host provided).
-  const contentFormat = React.useRef<ContentFormat>(
+  // useState keeps the format in sync with React's render cycle, so consumers
+  // always see the current format without needing a separate cache-buster counter.
+  const [contentFormat, setContentFormat] = React.useState<ContentFormat>(
     props.content.trimStart().startsWith("{") ? "json" : "yaml",
   );
-
-  // Force a re-render when contentFormat is updated imperatively via setContent
-  // (refs don't trigger re-renders on their own).
-  const [contentFormatVersion, setContentFormatVersion] = React.useState(0);
 
   // Config state (non-history)
   const [locale, setLocale] = React.useState<string>(props.locale);
@@ -111,12 +107,8 @@ export const DiagramEditorContextProvider = React.forwardRef<
     const resolvedId = resolveSelectedId(parsedModel, selectedNodeIdRef.current);
     setSelectedNodeId(resolvedId);
     seedModel(parsedModel, { x: 0, y: 0, zoom: 1 }, resolvedId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    // Intentionally omitting selectedNodeIdRef and seedModel:
-    // - selectedNodeIdRef is a ref (stable, mutated inline — not a dep by convention)
-    // - seedModel is a useCallback with stable identity; including it would re-seed on
-    //   every selection change because its deps would change too
-  }, [props.content]);
+    // selectedNodeIdRef is a ref (stable, mutated inline — not a dep by convention).
+  }, [props.content, seedModel]);
 
   const taskReferences = React.useMemo(
     () => (model ? getTaskReferences(buildFlatGraph(model)) : new Set<string>()),
@@ -140,16 +132,12 @@ export const DiagramEditorContextProvider = React.forwardRef<
       setErrors(newErrors);
 
       const newFormat: ContentFormat = content.trimStart().startsWith("{") ? "json" : "yaml";
-      if (newFormat !== contentFormat.current) {
-        contentFormat.current = newFormat;
-        setContentFormatVersion((v) => v + 1);
-      }
+      setContentFormat(newFormat);
 
       const resolvedId = resolveSelectedId(newModel, selectedNodeIdRef.current);
       setSelectedNodeId(resolvedId);
       seedModel(newModel, { x: 0, y: 0, zoom: 1 }, resolvedId);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [seedModel],
   );
 
@@ -165,8 +153,8 @@ export const DiagramEditorContextProvider = React.forwardRef<
 
   const getContent = React.useCallback(() => {
     if (!model) return "";
-    return serializeWorkflow(model, contentFormat.current);
-  }, [model]);
+    return serializeWorkflow(model, contentFormat);
+  }, [model, contentFormat]);
 
   React.useImperativeHandle(
     ref as React.Ref<DiagramEditorRef>,
@@ -179,10 +167,7 @@ export const DiagramEditorContextProvider = React.forwardRef<
     () => ({
       isReadOnly,
       locale,
-      // contentFormat.current is read here so the memo always captures the current
-      // format after an imperative setContent call. contentFormatVersion (in the
-      // dependency array below) busts the memo whenever the format ref is mutated.
-      contentFormat: contentFormat.current,
+      contentFormat,
       model,
       errors,
       nodes,
@@ -205,8 +190,7 @@ export const DiagramEditorContextProvider = React.forwardRef<
     [
       isReadOnly,
       locale,
-      contentFormatVersion,
-      // contentFormat.current is a ref — stable, no need to list as dep.
+      contentFormat,
       model,
       errors,
       nodes,

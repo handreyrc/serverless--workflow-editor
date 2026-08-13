@@ -68,17 +68,31 @@ export const Diagram = ({ divRef, colorMode = "light" }: DiagramProps) => {
   const [minimapVisible, setMinimapVisible] = React.useState(false);
   const [layoutError, setLayoutError] = React.useState<Error | null>(null);
 
-  // Track whether fitView has run at least once in this edit session.
-  const hasRunFitView = React.useRef<boolean>(false);
-
-  // Ref to the latest selectedNodeId so the layout callback can stamp selection
-  // without taking it as a dependency (avoids re-running layout on every click).
+  // Refs to the latest values that the post-layout callback reads after the async
+  // layout completes. Keeping them as refs (not deps) prevents those values from
+  // re-triggering the layout effect when they change independently (e.g. selection,
+  // viewport, undo/redo).
   const selectedNodeIdRef = React.useRef<string | null>(selectedNodeId);
   selectedNodeIdRef.current = selectedNodeId;
+  const pendingViewportRestoreRef = React.useRef(pendingViewportRestore);
+  pendingViewportRestoreRef.current = pendingViewportRestore;
+  const isReadOnlyRef = React.useRef(isReadOnly);
+  isReadOnlyRef.current = isReadOnly;
+  const modelRef = React.useRef(model);
+  modelRef.current = model;
+  // Function refs — callbacks change identity across renders but the post-layout
+  // setTimeout must always invoke the latest version without re-running layout.
+  const submitModelRef = React.useRef(submitModel);
+  submitModelRef.current = submitModel;
+  const clearPendingViewportRestoreRef = React.useRef(clearPendingViewportRestore);
+  clearPendingViewportRestoreRef.current = clearPendingViewportRestore;
 
   // True once the first layout has been committed to context — gates rendering the canvas
   // so React Flow mounts with nodes already positioned and fitView fires on real content.
   const [layoutReady, setLayoutReady] = React.useState(false);
+  // Whether the initial fitView (fired by the fitView prop on <RF.ReactFlow>) has run.
+  // Used by the post-layout callback to decide whether to re-fit on subsequent layouts.
+  const hasRunInitialFitView = React.useRef(false);
 
   const onNodesChange = React.useCallback<RF.OnNodesChange>(
     (changes) => setNodes((nodesSnapshot) => RF.applyNodeChanges(changes, nodesSnapshot)),
@@ -101,6 +115,9 @@ export const Diagram = ({ divRef, colorMode = "light" }: DiagramProps) => {
   );
 
   // Rebuild nodes and edges when model or errors change (with debouncing).
+  // Post-layout work (viewport restore, re-fit, submitModel) runs directly inside the
+  // async callback via refs, so this effect never depends on selectedNodeId, viewport,
+  // or any other value that changes independently of layout.
   React.useEffect(() => {
     let isActive = true;
     let abortController: AbortController | null = null;
@@ -124,6 +141,43 @@ export const Diagram = ({ divRef, colorMode = "light" }: DiagramProps) => {
             // On first load: reveal the canvas — React Flow will mount with nodes already
             // positioned and the fitView prop will fit them correctly on first render.
             setLayoutReady(true);
+
+            // Post-layout viewport work runs in a zero-delay timeout so React Flow has
+            // processed the new nodes before we read or set the viewport.
+            setTimeout(() => {
+              if (!isActive) return;
+
+              const pendingRestore = pendingViewportRestoreRef.current;
+              if (pendingRestore) {
+                // Undo/redo — restore saved viewport instead of fitting.
+                reactFlowInstance.setViewport(pendingRestore);
+                clearPendingViewportRestoreRef.current();
+                // Submit with the restored viewport directly — setViewport is async so
+                // getViewport() would still return the old value at this point.
+                const currentModel = modelRef.current;
+                if (currentModel !== null) {
+                  submitModelRef.current(currentModel, pendingRestore, selectedNodeIdRef.current);
+                }
+              } else {
+                if (isReadOnlyRef.current && hasRunInitialFitView.current) {
+                  // Re-fit on subsequent read-only layout cycles (e.g. content prop change).
+                  // duration:0 — no animation; the user expects an instant re-render, not a pan.
+                  reactFlowInstance.fitView({ ...FIT_VIEW_OPTIONS, duration: 0 });
+                }
+                hasRunInitialFitView.current = true;
+
+                // Submit model with the real viewport captured after layout settles.
+                // Diagram.tsx is the sole caller of submitModel.
+                const currentModel = modelRef.current;
+                if (currentModel !== null) {
+                  submitModelRef.current(
+                    currentModel,
+                    reactFlowInstance.getViewport(),
+                    selectedNodeIdRef.current,
+                  );
+                }
+              }
+            }, 0);
           }
         })
         .catch((error) => {
@@ -139,62 +193,7 @@ export const Diagram = ({ divRef, colorMode = "light" }: DiagramProps) => {
       clearTimeout(debounceTimeoutId);
       abortController?.abort();
     };
-  }, [model, errors, setNodes, setEdges]);
-
-  // After each layout cycle: restore viewport (undo/redo) or fit (read-only re-layout),
-  // then submit the model. The initial fitView on first mount is handled by the
-  // fitView prop on <RF.ReactFlow> (fires once, duration:0, nodes already positioned).
-  React.useEffect(() => {
-    if (!layoutReady) return;
-
-    let isActive = true;
-    const id = setTimeout(() => {
-      if (!isActive) return;
-
-      if (pendingViewportRestore) {
-        // Undo/redo — restore saved viewport instead of fitting.
-        reactFlowInstance.setViewport(pendingViewportRestore);
-        clearPendingViewportRestore();
-        // Submit with the restored viewport directly — setViewport is async so
-        // getViewport() would still return the old value at this point.
-        if (model !== null) {
-          submitModel(model, pendingViewportRestore, selectedNodeId);
-        }
-      } else {
-        if (isReadOnly && hasRunFitView.current) {
-          // Re-fit on subsequent read-only layout updates (e.g. content prop change).
-          // duration:0 — no animation; the user expects an instant re-render, not a pan.
-          reactFlowInstance.fitView({ ...FIT_VIEW_OPTIONS, duration: 0 });
-        }
-
-        // Track that first fitView has run (the RF prop fires on mount).
-        if (!hasRunFitView.current) {
-          hasRunFitView.current = true;
-        }
-
-        // Submit model with the real viewport captured after layout settles.
-        // Diagram.tsx is the sole caller of submitModel.
-        if (model !== null) {
-          submitModel(model, reactFlowInstance.getViewport(), selectedNodeId);
-        }
-      }
-    }, 0);
-
-    return () => {
-      isActive = false;
-      clearTimeout(id);
-    };
-  }, [
-    nodes,
-    pendingViewportRestore,
-    isReadOnly,
-    reactFlowInstance,
-    model,
-    selectedNodeId,
-    submitModel,
-    clearPendingViewportRestore,
-    layoutReady,
-  ]);
+  }, [model, errors, setNodes, setEdges, reactFlowInstance]);
 
   if (layoutError) {
     return (
