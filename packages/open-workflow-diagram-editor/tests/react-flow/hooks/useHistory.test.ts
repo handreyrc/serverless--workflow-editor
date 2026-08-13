@@ -132,6 +132,24 @@ describe("historyReducer", () => {
     });
   });
 
+  describe("RESET", () => {
+    it("returns to the uninitialised state from a non-empty history", () => {
+      let state: HistoryState<S> = { history: ["a", "b", "c"], presentIndex: 2 };
+      state = historyReducer(state, { type: "UNDO" });
+      const next = historyReducer(state, { type: "RESET" });
+      expect(getPresent(next)).toBeNull();
+      expect(getPast(next)).toHaveLength(0);
+      expect(getFuture(next)).toHaveLength(0);
+      expect(next.presentIndex).toBe(-1);
+    });
+
+    it("is idempotent when already uninitialised", () => {
+      const next = historyReducer(empty, { type: "RESET" });
+      expect(getPresent(next)).toBeNull();
+      expect(next.presentIndex).toBe(-1);
+    });
+  });
+
   describe("PUSH after UNDO (fork — REQ-05)", () => {
     it("discards all future entries when pushing after an undo", () => {
       // Start: a → b → c, undo twice → sitting at a with future [b, c]
@@ -251,6 +269,22 @@ describe("useHistory hook", () => {
 
     act(() => result.current.redo());
     expect(result.current.canUndo).toBe(true);
+    expect(result.current.canRedo).toBe(false);
+  });
+
+  it("reset clears all history and returns present to null", () => {
+    const { result } = renderHook(() => useHistory<S>());
+    act(() => result.current.push("a"));
+    act(() => result.current.push("b"));
+    act(() => result.current.push("c"));
+    act(() => result.current.undo());
+
+    act(() => result.current.reset());
+
+    expect(getPresent(result.current.state)).toBeNull();
+    expect(getPast(result.current.state)).toHaveLength(0);
+    expect(getFuture(result.current.state)).toHaveLength(0);
+    expect(result.current.canUndo).toBe(false);
     expect(result.current.canRedo).toBe(false);
   });
 });

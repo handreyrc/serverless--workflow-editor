@@ -71,6 +71,7 @@ export const DiagramEditorContextProvider = React.forwardRef<
     model,
     seedModel,
     submitModel,
+    resetHistory,
     undo: historyUndo,
     redo: historyRedo,
     canUndo,
@@ -97,7 +98,11 @@ export const DiagramEditorContextProvider = React.forwardRef<
     const { model: parsedModel, errors: parsedErrors } = parseWorkflow(props.content);
     setErrors(parsedErrors);
     if (parsedModel === null) {
-      // Null model is never stored in history.
+      // Content is unparseable — reset history to null so downstream consumers
+      // (e.g. DiagramEditorContent) see model === null and render the error page
+      // instead of displaying the last successfully-parsed (now stale) model.
+      resetHistory();
+      setSelectedNodeId(null);
       return;
     }
     // Preserve selection across content reloads (e.g. addon-panel edits): only clear
@@ -108,7 +113,7 @@ export const DiagramEditorContextProvider = React.forwardRef<
     setSelectedNodeId(resolvedId);
     seedModel(parsedModel, { x: 0, y: 0, zoom: 1 }, resolvedId);
     // selectedNodeIdRef is a ref (stable, mutated inline — not a dep by convention).
-  }, [props.content, seedModel]);
+  }, [props.content, resetHistory, seedModel]);
 
   const taskReferences = React.useMemo(
     () => (model ? getTaskReferences(buildFlatGraph(model)) : new Set<string>()),

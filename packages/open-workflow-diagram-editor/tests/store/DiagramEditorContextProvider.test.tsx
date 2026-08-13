@@ -207,6 +207,36 @@ describe("DiagramEditorContextProvider Component", () => {
     });
   });
 
+  it("Resets model to null when content changes from valid to unparseable", async () => {
+    const { rerender } = render(
+      <DiagramEditorContextProvider
+        content={BASIC_VALID_WORKFLOW_YAML}
+        isReadOnly={true}
+        locale={"en"}
+      >
+        <TestComponent />
+      </DiagramEditorContextProvider>,
+    );
+
+    // Wait for the valid model to be seeded into history.
+    await waitFor(() => {
+      expect(screen.getByTestId("test-model")).not.toHaveTextContent("null");
+    });
+
+    // Transition to unparseable content.
+    rerender(
+      <DiagramEditorContextProvider content={""} isReadOnly={true} locale={"en"}>
+        <TestComponent />
+      </DiagramEditorContextProvider>,
+    );
+
+    // History must be reset — model should now be null, not the stale valid model.
+    await waitFor(() => {
+      expect(screen.getByTestId("test-model")).toHaveTextContent("null");
+      expect(screen.getByTestId("test-errors")).toHaveTextContent("1");
+    });
+  });
+
   it("Updates model when content prop changes", async () => {
     const { rerender } = render(
       <DiagramEditorContextProvider

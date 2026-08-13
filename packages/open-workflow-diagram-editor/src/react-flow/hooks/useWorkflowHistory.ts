@@ -49,6 +49,12 @@ export type UseWorkflowHistoryReturn = {
     viewport: RF.Viewport,
     selectedNodeId: string | null,
   ) => void;
+  /**
+   * Resets history to the uninitialised state (present = null).
+   * Use when external content becomes unparseable so the diagram can correctly
+   * render the parsing-error page instead of keeping stale model content.
+   */
+  resetHistory: () => void;
   undo: (setSelectedNodeId: React.Dispatch<React.SetStateAction<string | null>>) => void;
   redo: (setSelectedNodeId: React.Dispatch<React.SetStateAction<string | null>>) => void;
   canUndo: boolean;
@@ -67,6 +73,7 @@ export function useWorkflowHistory(isReadOnly: boolean): UseWorkflowHistoryRetur
     state,
     push,
     setPresent,
+    reset,
     undo: dispatchUndo,
     redo: dispatchRedo,
     canUndo,
@@ -190,11 +197,16 @@ export function useWorkflowHistory(isReadOnly: boolean): UseWorkflowHistoryRetur
     setPendingViewportRestore(null);
   }, []);
 
+  const resetHistory = React.useCallback(() => {
+    reset();
+  }, [reset]);
+
   return {
     model: getPresent(state)?.model ?? null,
     selectedNodeId: getPresent(state)?.selectedNodeId ?? null,
     seedModel,
     submitModel,
+    resetHistory,
     undo,
     redo,
     canUndo,

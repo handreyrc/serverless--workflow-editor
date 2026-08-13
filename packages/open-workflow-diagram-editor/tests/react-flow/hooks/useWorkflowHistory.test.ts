@@ -373,6 +373,51 @@ describe("useWorkflowHistory", () => {
     });
   });
 
+  describe("resetHistory", () => {
+    it("sets model back to null and clears canUndo/canRedo", () => {
+      const { result } = renderHook(() => useWorkflowHistory(false));
+      const model1 = makeModel(BASIC_VALID_WORKFLOW_JSON);
+      const model2 = makeModel(BASIC_VALID_WORKFLOW_JSON_TASKS);
+
+      act(() => {
+        result.current.submitModel(model1, VP_A, null);
+      });
+      act(() => {
+        result.current.submitModel(model2, VP_B, null);
+      });
+      expect(result.current.model).not.toBeNull();
+      expect(result.current.canUndo).toBe(true);
+
+      act(() => {
+        result.current.resetHistory();
+      });
+
+      expect(result.current.model).toBeNull();
+      expect(result.current.canUndo).toBe(false);
+      expect(result.current.canRedo).toBe(false);
+    });
+
+    it("allows a fresh seed after reset", () => {
+      const { result } = renderHook(() => useWorkflowHistory(false));
+      const model1 = makeModel(BASIC_VALID_WORKFLOW_JSON);
+      const model2 = makeModel(BASIC_VALID_WORKFLOW_JSON_TASKS);
+
+      act(() => {
+        result.current.submitModel(model1, VP_A, null);
+      });
+      act(() => {
+        result.current.resetHistory();
+      });
+      act(() => {
+        result.current.seedModel(model2, VP_A, null);
+      });
+
+      // After reset + seed the first entry should be set with no past.
+      expect(result.current.model).not.toBeNull();
+      expect(result.current.canUndo).toBe(false);
+    });
+  });
+
   describe("clearPendingViewportRestore", () => {
     it("sets pendingViewportRestore back to null", () => {
       const { result } = renderHook(() => useWorkflowHistory(false));

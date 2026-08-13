@@ -56,7 +56,8 @@ type HistoryAction<T> =
   | { type: "PUSH"; payload: T }
   | { type: "SET_PRESENT"; payload: T }
   | { type: "UNDO" }
-  | { type: "REDO" };
+  | { type: "REDO" }
+  | { type: "RESET" };
 
 export function historyReducer<T>(
   state: HistoryState<T>,
@@ -101,6 +102,10 @@ export function historyReducer<T>(
       return { ...state, presentIndex: state.presentIndex + 1 };
     }
 
+    case "RESET":
+      // Wipe the entire history stack and return to the uninitialised state.
+      return initialHistoryState<T>();
+
     default:
       return state;
   }
@@ -115,6 +120,7 @@ export type UseHistoryReturn<T> = {
   state: HistoryState<T>;
   push: (payload: T) => void;
   setPresent: (payload: T) => void;
+  reset: () => void;
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
@@ -142,6 +148,10 @@ export function useHistory<T>(): UseHistoryReturn<T> {
     dispatch({ type: "SET_PRESENT", payload });
   }, []);
 
+  const reset = React.useCallback(() => {
+    dispatch({ type: "RESET" });
+  }, []);
+
   const undo = React.useCallback(() => {
     dispatch({ type: "UNDO" });
   }, []);
@@ -154,6 +164,7 @@ export function useHistory<T>(): UseHistoryReturn<T> {
     state,
     push,
     setPresent,
+    reset,
     undo,
     redo,
     canUndo: state.presentIndex > 0,
