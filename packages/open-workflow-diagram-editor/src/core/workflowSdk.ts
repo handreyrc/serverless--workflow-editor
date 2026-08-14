@@ -295,11 +295,10 @@ export function serializeWorkflow(
   model: sdk.Specification.Workflow,
   format: ContentFormat,
 ): string {
-  const workflow = model instanceof sdk.Classes.Workflow ? model : new sdk.Classes.Workflow(model);
-  if (format === "json") return workflow.serialize("json");
-  // SDK bug (v1.0.3-alpha6): instance.serialize("yaml") fails because normalize()
-  // returns a Workflow class instance and js-yaml rejects non-plain objects.
-  // Workaround: serialize to JSON first to get a plain object, then dump as YAML.
-  // TODO: Remove this workaround once the SDK is fixed.
-  return dump(JSON.parse(workflow.serialize("json")));
+  // The SDK validates the model before serializing it and it may cause validation exceptions
+  // Even if we have a model with validation errors we want it to be serialized
+  const json = JSON.stringify(model);
+  if (format === "json") return json;
+  // dump only works with plain objects.
+  return dump(JSON.parse(json));
 }

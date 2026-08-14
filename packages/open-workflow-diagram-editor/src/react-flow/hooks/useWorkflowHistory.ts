@@ -123,9 +123,11 @@ export function useWorkflowHistory(isReadOnly: boolean): UseWorkflowHistoryRetur
       // No-op if model content is unchanged.
       if (structuralEqual(present.model, newModel)) return;
 
-      // Content changed externally (e.g. props.content updated by host).
-      // Push new snapshot — future is discarded by reducer.
-      push({ model: newModel, viewport, selectedNodeId });
+      // Content changed externally (e.g. props.content updated by host or addon panel).
+      // Preserve the current viewport so undo restores to where the user was looking,
+      // rather than the placeholder {x:0,y:0,zoom:1} passed by the caller.
+      // The real viewport will be updated by submitModel after layout settles.
+      push({ model: newModel, viewport: present.viewport, selectedNodeId });
     },
     [push, setPresent],
   );

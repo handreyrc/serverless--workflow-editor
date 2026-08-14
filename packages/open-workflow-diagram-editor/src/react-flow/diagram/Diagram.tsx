@@ -124,6 +124,9 @@ export const Diagram = ({ divRef, colorMode = "light" }: DiagramProps) => {
 
     // Debounce layout calculation to avoid excessive CPU usage on rapid changes.
     const debounceTimeoutId = setTimeout(() => {
+      // Clear any previous layout error when starting a new layout cycle
+      // so the editor can recover if the new layout succeeds.
+      setLayoutError(null);
       abortController = new AbortController();
 
       const graph = buildDiagramElements(model, errors);
@@ -186,7 +189,7 @@ export const Diagram = ({ divRef, colorMode = "light" }: DiagramProps) => {
           }
           setLayoutError(error instanceof Error ? error : new Error(String(error)));
         });
-    }, 100);
+    }, 300);
 
     return () => {
       isActive = false;
