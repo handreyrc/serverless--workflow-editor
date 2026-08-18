@@ -135,14 +135,19 @@ function throwInvalidParent(parentId: string): never {
  *
  * @param taskEntry - Task entry object containing one task name and task value.
  * @returns The task name stored in the entry.
- * @throws Error when the entry has no keys (indicates a malformed task list).
+ * @throws Error when the entry does not have exactly one key.
  */
 function getTaskName(taskEntry: TaskEntry): string {
-  const name = Object.keys(taskEntry)[0];
-  if (name === undefined) {
+  const keys = Object.keys(taskEntry);
+  if (keys.length === 0) {
     throw new Error("Malformed task entry: no task name found");
   }
-  return name;
+  if (keys.length > 1) {
+    throw new Error(
+      `Malformed task entry: expected exactly one key but got ${keys.length} (${keys.join(", ")})`,
+    );
+  }
+  return keys[0]!;
 }
 
 /**
@@ -196,11 +201,11 @@ function forEachSwitchItem(
     }
 
     // Each SwitchItem is a single-key object { [caseName]: SwitchCase }.
-    // Object.values yields exactly one branch per item.
-    for (const branch of Object.values(item as Record<string, unknown>)) {
-      if (branch && typeof branch === "object") {
-        callback(branch as Record<string, unknown>, i, maybeSwitch);
-      }
+    // Only process the first branch to keep itemIndex-to-switch-item mapping deterministic
+    // even if malformed input contains multiple keys.
+    const [branch] = Object.values(item as Record<string, unknown>);
+    if (branch && typeof branch === "object") {
+      callback(branch as Record<string, unknown>, i, maybeSwitch);
     }
   }
 }
@@ -329,9 +334,7 @@ function traversePathTo(
         reachedViaTaskList = true;
         continue;
       }
-    }
-
-    if (current && typeof current === "object" && segment in current) {
+    } else if (current && typeof current === "object" && segment in current) {
       current = (current as Record<string, unknown>)[segment];
       reachedViaTaskList = false;
       continue;
@@ -577,9 +580,10 @@ export function deleteTask(
  *   such as `/do`, `/do/tryBlock/try`, or `/do/loopTask/do`.
  * @param afterTaskId - Optional non-indexed editor task id of the sibling task after which the
  *   new task should be inserted. When omitted the task is appended at the end of the list.
- *   The last path segment is used as the task name to locate the sibling in `parentId`'s list.
+ *   Must be a direct child of `parentId` (i.e. its parent path must equal `parentId`).
  * @returns A copied workflow instance containing the newly added task.
  * @throws Error when `parentId` cannot be resolved to a valid task list in the workflow.
+ * @throws Error when `afterTaskId` is provided but its parent path does not match `parentId`.
  * @throws Error when `afterTaskId` is provided but cannot be found in the resolved task list.
  */
 export function addTask(
@@ -588,6 +592,7 @@ export function addTask(
   parentId: string,
   afterTaskId?: string,
 ): Specification.Workflow {
+  getTaskName(newTask); // validates single-entry contract before mutating
   const workflowDraft = createWorkflowDraft(workflow);
   const container = resolveParentTaskList(workflowDraft, parentId);
 
@@ -598,6 +603,12 @@ export function addTask(
   } else {
     const afterPathSegments = getPathSegments(afterTaskId);
     const afterTaskName = afterPathSegments[afterPathSegments.length - 1]!;
+    const afterParentId = "/" + afterPathSegments.slice(0, -1).join("/");
+
+    if (afterParentId !== parentId) {
+      throw new Error(`afterTaskId "${afterTaskId}" does not belong to parent "${parentId}"`);
+    }
+
     const afterIndex = container.findIndex((entry) => afterTaskName in entry);
 
     if (afterIndex === -1) {

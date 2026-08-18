@@ -23,6 +23,19 @@ function makeWorkflow(data: object): Specification.Workflow {
   return new Classes.Workflow(data) as Specification.Workflow;
 }
 
+function getTaskByName(workflow: Specification.Workflow, taskName: string): Specification.Task {
+  const taskEntry = workflow.do?.find((entry) => taskName in entry) as
+    | Record<string, Specification.Task>
+    | undefined;
+  expect(taskEntry).toBeDefined();
+  return taskEntry![taskName]!;
+}
+
+function getSwitchCaseNames(task: Specification.Task): string[] {
+  const switchItems = (task as { switch?: Record<string, unknown>[] }).switch ?? [];
+  return switchItems.map((item) => Object.keys(item)[0]!);
+}
+
 /** Returns a fresh workflow instance for every test to guarantee isolation. */
 function makeGithubIssuesWorkflow(): Specification.Workflow {
   return makeWorkflow(MANAGING_GITHUB_ISSUES_WORKFLOW);
@@ -251,6 +264,15 @@ describe("replaceTask", () => {
       expectedMessage,
     );
   });
+
+  it("throws when newTask has more than one key", () => {
+    expect(() =>
+      replaceTask(workflow, "/do/initialize", {
+        taskA: { set: { x: 1 } },
+        taskB: { set: { x: 2 } },
+      } as unknown as Parameters<typeof replaceTask>[2]),
+    ).toThrow("Malformed task entry: expected exactly one key but got 2 (taskA, taskB)");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -333,50 +355,88 @@ describe("deleteTask", () => {
 
   // ── Switch-case pruning ────────────────────────────────────────────────────
 
-  it("removes switch cases that reference the deleted root task (reviewIssue → review case removed)", () => {
-    // evaluateDevWorkOutcome.switch has a 'review' case with then: "reviewIssue"
-    const result = deleteTask(workflow, "/do/reviewIssue");
+  it.each([
+    {
+      deletedTaskId: "/do/reviewIssue",
+      deletedCaseName: "review",
+      expectedRemainingCaseNames: ["requestDetails", "default"],
+    },
+    {
+      deletedTaskId: "/do/awaitDetailsFromQA",
+      deletedCaseName: "requestDetails",
+      expectedRemainingCaseNames: ["review", "default"],
+    },
+    {
+      deletedTaskId: "/do/raiseUnsupportedActionError",
+      deletedCaseName: "default",
+      expectedRemainingCaseNames: ["review", "requestDetails"],
+    },
+  ])(
+    "removes only the expected switch branch when deleting $deletedTaskId",
+    ({ deletedTaskId, deletedCaseName, expectedRemainingCaseNames }) => {
+      const result = deleteTask(workflow, deletedTaskId);
+      const evaluateDevWorkOutcome = getTaskByName(result, "evaluateDevWorkOutcome");
+      const caseNames = getSwitchCaseNames(evaluateDevWorkOutcome);
 
-    const evaluateDevWorkOutcome = result.do?.find((e) => "evaluateDevWorkOutcome" in e) as {
-      evaluateDevWorkOutcome: {
-        switch: { review?: unknown; requestDetails?: unknown; default?: unknown }[];
-      };
-    };
-    const switchCases = evaluateDevWorkOutcome.evaluateDevWorkOutcome.switch;
-    const caseNames = switchCases.map((item) => Object.keys(item)[0]);
-    expect(caseNames).not.toContain("review");
-    // The other two cases must be preserved
-    expect(caseNames).toContain("requestDetails");
-    expect(caseNames).toContain("default");
+      expect(caseNames).not.toContain(deletedCaseName);
+      expect(caseNames).toEqual(expectedRemainingCaseNames);
+    },
+  );
+
+  it("prunes only the first matching malformed multi-key switch item when deleting its referenced task", () => {
+    const malformedWorkflow = makeWorkflow({
+      document: {
+        dsl: "0.9",
+        namespace: "test",
+        name: "malformed-switch-item",
+        version: "0.1.0",
+      },
+      do: [
+        { removeMe: { set: { value: "remove" } } },
+        { keepMe: { set: { value: "keep" } } },
+        {
+          decide: {
+            switch: [
+              // oxlint-disable-next-line unicorn/no-thenable
+              {
+                malformedPrimary: { when: "$primary", then: "removeMe" }, // oxlint-disable-line unicorn/no-thenable
+                malformedSecondary: { when: "$secondary", then: "removeMe" }, // oxlint-disable-line unicorn/no-thenable
+              },
+              { keepCase: { when: "$keep", then: "keepMe" } }, // oxlint-disable-line unicorn/no-thenable
+            ],
+          },
+        },
+      ],
+    });
+
+    const result = deleteTask(malformedWorkflow, "/do/removeMe");
+    const decide = getTaskByName(result, "decide");
+
+    expect(getSwitchCaseNames(decide)).toEqual(["keepCase"]);
   });
 
-  it("removes switch cases that reference the deleted root task (awaitDetailsFromQA → requestDetails case removed)", () => {
-    // evaluateDevWorkOutcome.switch has a 'requestDetails' case with then: "awaitDetailsFromQA"
-    const result = deleteTask(workflow, "/do/awaitDetailsFromQA");
+  it.each([
+    {
+      deletedTaskId: "/do/reviewIssue",
+      expectedRemainingCaseNames: ["requestDetails", "default"],
+    },
+    {
+      deletedTaskId: "/do/awaitDetailsFromQA",
+      expectedRemainingCaseNames: ["review", "default"],
+    },
+    {
+      deletedTaskId: "/do/raiseUnsupportedActionError",
+      expectedRemainingCaseNames: ["review", "requestDetails"],
+    },
+  ])(
+    "removes only the targeted switch branch when deleting first, middle, or last referenced task: $deletedTaskId",
+    ({ deletedTaskId, expectedRemainingCaseNames }) => {
+      const result = deleteTask(workflow, deletedTaskId);
+      const evaluateDevWorkOutcome = getTaskByName(result, "evaluateDevWorkOutcome");
 
-    const evaluateDevWorkOutcome = result.do?.find((e) => "evaluateDevWorkOutcome" in e) as {
-      evaluateDevWorkOutcome: { switch: unknown[] };
-    };
-    const caseNames = evaluateDevWorkOutcome.evaluateDevWorkOutcome.switch.map(
-      (item) => Object.keys(item as object)[0],
-    );
-    expect(caseNames).not.toContain("requestDetails");
-    // 'review' and 'default' are unaffected
-    expect(caseNames).toContain("review");
-    expect(caseNames).toContain("default");
-  });
-
-  it("removes switch cases that reference the deleted root task (raiseUnsupportedActionError → default case removed from evaluateDevWorkOutcome)", () => {
-    const result = deleteTask(workflow, "/do/raiseUnsupportedActionError");
-
-    const evaluateDevWorkOutcome = result.do?.find((e) => "evaluateDevWorkOutcome" in e) as {
-      evaluateDevWorkOutcome: { switch: unknown[] };
-    };
-    const caseNames = evaluateDevWorkOutcome.evaluateDevWorkOutcome.switch.map(
-      (item) => Object.keys(item as object)[0],
-    );
-    expect(caseNames).not.toContain("default");
-  });
+      expect(getSwitchCaseNames(evaluateDevWorkOutcome)).toEqual(expectedRemainingCaseNames);
+    },
+  );
 
   it("removes switch cases that reference the deleted nested task inside evaluateReview.do (closeIssue)", () => {
     // evaluateReview.do contains an 'evaluate' switch with a 'closeIssue' case pointing to 'closeIssue'
@@ -416,10 +476,9 @@ describe("deleteTask", () => {
   });
 
   it("does not prune switch cases that point to reserved flow directives (end, exit, continue)", () => {
-    // raiseUnsupportedActionError.then === "end" (reserved) — deleting 'raiseAssignedDevCannotBeReviewer'
-    // must leave the 'reviewerIsAssignedDev' case in validateReview.switch intact because its then
-    // points to the task being deleted, but we want to verify reserved-directive cases are untouched
-    // by an unrelated deletion. Deleting 'initialize' must not affect validateReview.switch at all.
+    // Deleting 'initialize' is unrelated to validateReview.switch — neither of its cases points to
+    // 'initialize'. The 'reviewerIsAssignedDev' case has then === "end" (a reserved flow directive),
+    // which is never a candidate for pruning regardless. Both cases must survive the deletion unchanged.
     const result = deleteTask(workflow, "/do/initialize");
 
     const validateReview = result.do?.find((e) => "validateReview" in e) as {
@@ -624,4 +683,44 @@ describe("addTask", () => {
       ).toThrow(expectedMessage);
     },
   );
+
+  it.each([
+    // afterTaskId belongs to the root scope but parentId is a nested list
+    [
+      "/do/awaitForDevWork/do",
+      "/do/initialize",
+      `afterTaskId "/do/initialize" does not belong to parent "/do/awaitForDevWork/do"`,
+    ],
+    // afterTaskId belongs to a sibling nested scope
+    [
+      "/do/awaitForDevWork/do",
+      "/do/evaluateReview/do/closeIssue/do/initialize",
+      `afterTaskId "/do/evaluateReview/do/closeIssue/do/initialize" does not belong to parent "/do/awaitForDevWork/do"`,
+    ],
+    // afterTaskId belongs to a deeper nested scope but parentId is the root list
+    [
+      "/do",
+      "/do/awaitForDevWork/do/assign",
+      `afterTaskId "/do/awaitForDevWork/do/assign" does not belong to parent "/do"`,
+    ],
+  ])(
+    "throws when afterTaskId '%s' is from a different scope than parentId",
+    (parentId, afterTaskId, expectedMessage) => {
+      expect(() =>
+        addTask(workflow, { newTask: { set: { x: 1 } } }, parentId, afterTaskId),
+      ).toThrow(expectedMessage);
+    },
+  );
+  it("throws when newTask has more than one key", () => {
+    expect(() =>
+      addTask(
+        workflow,
+        {
+          taskA: { set: { x: 1 } },
+          taskB: { set: { x: 2 } },
+        } as unknown as Parameters<typeof addTask>[1],
+        "/do",
+      ),
+    ).toThrow("Malformed task entry: expected exactly one key but got 2 (taskA, taskB)");
+  });
 });
