@@ -109,7 +109,11 @@ function getStructuralDefs(): Set<string> {
     if (Array.isArray(allOf)) {
       for (const entry of allOf) {
         const ref = entry["$ref"];
-        if (typeof ref === "string" && ref.startsWith("#/$defs/")) {
+        if (
+          typeof ref === "string" &&
+          ref.startsWith("#/$defs/") &&
+          Object.keys(entry).length === 1
+        ) {
           _structuralDefs!.add(ref.slice("#/$defs/".length));
         }
       }

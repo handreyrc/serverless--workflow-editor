@@ -164,11 +164,14 @@ function SchemaFilterStory() {
     }
   };
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(schemaJson).then(() => {
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(schemaJson);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   return (
