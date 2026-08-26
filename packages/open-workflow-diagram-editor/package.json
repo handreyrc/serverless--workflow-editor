@@ -45,6 +45,7 @@
     "@openworkflowspec/i18n": "workspace:*",
     "@openworkflowspec/sdk": "catalog:",
     "@xyflow/react": "catalog:",
+    "allof-merge": "catalog:",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "elkjs": "catalog:",
