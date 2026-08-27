@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+import type { DetailField } from "@/core/taskDetails";
+import { FieldControl } from "./FieldControls";
+
 export function SectionHeader({ label }: { label: string }) {
   return (
     <div className="dec-sidebar-section-header">
@@ -32,11 +35,21 @@ export function InlineField({ label, value }: { label: string; value: string }) 
   );
 }
 
-export function PropertyField({ label, value }: { label: string; value: string }) {
+export function PropertyField({
+  label,
+  field,
+  isReadOnly,
+}: {
+  label: string;
+  field: DetailField;
+  isReadOnly: boolean;
+}) {
   return (
     <div className="dec-sidebar-prop">
       <dt className="dec-sidebar-prop-label">{label}</dt>
-      <dd className="dec-sidebar-prop-value">{value}</dd>
+      <dd className="dec-sidebar-prop-value">
+        <FieldControl field={field} isReadOnly={isReadOnly} />
+      </dd>
     </div>
   );
 }
