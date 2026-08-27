@@ -249,6 +249,14 @@ describe("getSchemaForDefinition", () => {
       expect(setTask).not.toBe(tryTask);
     });
   });
+
+  describe("error handling", () => {
+    it("throws for an unknown definition", () => {
+      expect(() => getSchemaForDefinition("nonExistentDef")).toThrow(
+        'Definition "nonExistentDef" not found in workflow schema $defs.',
+      );
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
