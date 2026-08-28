@@ -78,6 +78,9 @@ catalogs:
     '@xyflow/react':
       specifier: ^12.11.3
       version: 12.11.3
+    allof-merge:
+      specifier: ^0.6.8
+      version: 0.6.8
     class-variance-authority:
       specifier: ^0.7.1
       version: 0.7.1
@@ -279,6 +282,9 @@ importers:
       '@xyflow/react':
         specifier: 'catalog:'
         version: 12.11.3(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      allof-merge:
+        specifier: 'catalog:'
+        version: 0.6.8
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -2727,6 +2733,9 @@ packages:
   ajv@8.20.0:
     resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
 
+  allof-merge@0.6.8:
+    resolution: {integrity: sha512-RJrHVDqITsU1kjE2L7s1hy4AYZSTlO1m9jTleYhVCEOfOpbbygRGfcEgrp+bW3oX/PcMUwVkt6MSJyXoyI6lRA==}
+
   ansi-regex@5.0.1:
     resolution: {integrity: sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==}
     engines: {node: '>=8'}
@@ -3154,6 +3163,10 @@ packages:
     resolution: {integrity: sha512-/sM3dO2FOzXjKQhJuo0Q173wf2KOo8t4I8vHy6lF9poUp7bKT0/NHE8fPX23PwfhnykfqnC2xRxOnVw5XuGIaA==}
     engines: {node: '>=6'}
     hasBin: true
+
+  json-crawl@0.5.3:
+    resolution: {integrity: sha512-BEjjCw8c7SxzNK4orhlWD5cXQh8vCk2LqDr4WgQq4CV+5dvopeYwt1Tskg67SuSLKvoFH5g0yuYtg7rcfKV6YA==}
+    engines: {node: '>=14.0.0'}
 
   json-schema-traverse@1.0.0:
     resolution: {integrity: sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==}
@@ -6121,6 +6134,10 @@ snapshots:
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
+  allof-merge@0.6.8:
+    dependencies:
+      json-crawl: 0.5.3
+
   ansi-regex@5.0.1: {}
 
   ansi-regex@6.2.2: {}
@@ -6486,6 +6503,8 @@ snapshots:
       - '@noble/hashes'
 
   jsesc@3.1.0: {}
+
+  json-crawl@0.5.3: {}
 
   json-schema-traverse@1.0.0: {}
 
