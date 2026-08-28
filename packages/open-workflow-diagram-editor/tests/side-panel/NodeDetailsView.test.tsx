@@ -246,4 +246,38 @@ describe("NodeDetailsView", () => {
       expect(container.querySelector(".dec-sidebar-yaml-pre")).toBeNull();
     });
   });
+
+  describe("read-only and editable modes", () => {
+    const node = makeNode({
+      label: "getPets",
+      task: {
+        call: "http",
+        with: { endpoint: "https://api.example.com" },
+      },
+    });
+
+    const modes = [
+      ["read-only", true],
+      ["editable", false],
+    ] as const;
+
+    /* The read-only/edit split is the same until the react-hook-form editor
+      lands, so both branches render the same property rows. */
+    it.each(modes)("renders the task's property rows in %s mode", (_mode, isReadOnly) => {
+      renderWithProviders(<NodeDetailsView node={node} />, { isReadOnly });
+
+      expect(screen.getByText("Properties")).toBeInTheDocument();
+      expect(screen.getByText("call")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("http")).toBeInTheDocument();
+      expect(screen.getByText("with.endpoint")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("https://api.example.com")).toBeInTheDocument();
+    });
+
+    it.each(modes)("renders property controls as disabled in %s mode", (_mode, isReadOnly) => {
+      renderWithProviders(<NodeDetailsView node={node} />, { isReadOnly });
+
+      expect(screen.getByDisplayValue("http")).toBeDisabled();
+      expect(screen.getByDisplayValue("https://api.example.com")).toBeDisabled();
+    });
+  });
 });

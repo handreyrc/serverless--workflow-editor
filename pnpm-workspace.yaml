@@ -41,6 +41,7 @@ catalog:
   radix-ui: ^1.6.5
   react: ^19.2.8
   react-dom: ^19.2.8
+  react-hook-form: ^7.86.0
   rimraf: ^6.1.3
   sonner: ^2.0.8
   storybook: ^10.5.10

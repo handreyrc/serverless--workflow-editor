@@ -52,6 +52,7 @@
     "fast-equals": "catalog:",
     "js-yaml": "catalog:",
     "radix-ui": "catalog:",
+    "react-hook-form": "catalog:",
     "sonner": "catalog:",
     "use-sync-external-store": "catalog:"
   },

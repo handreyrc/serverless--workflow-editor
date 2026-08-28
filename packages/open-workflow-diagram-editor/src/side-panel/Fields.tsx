@@ -35,20 +35,12 @@ export function InlineField({ label, value }: { label: string; value: string }) 
   );
 }
 
-export function PropertyField({
-  label,
-  field,
-  isReadOnly,
-}: {
-  label: string;
-  field: DetailField;
-  isReadOnly: boolean;
-}) {
+export function PropertyField({ label, field }: { label: string; field: DetailField }) {
   return (
     <div className="dec-sidebar-prop">
       <dt className="dec-sidebar-prop-label">{label}</dt>
       <dd className="dec-sidebar-prop-value">
-        <FieldControl field={field} isReadOnly={isReadOnly} />
+        <FieldControl field={field} />
       </dd>
     </div>
   );
