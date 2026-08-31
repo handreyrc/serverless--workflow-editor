@@ -185,6 +185,38 @@
   .dec-root.dark .dec-sidebar-prop-value {
     @apply dec:text-gray-100;
   }
+
+  .dec-root .dec-sidebar-value {
+    font-family: var(--dec-font-mono);
+    overflow-wrap: anywhere;
+  }
+
+  .dec-root .dec-sidebar-value.numeric {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .dec-root .dec-sidebar-value-shape {
+    @apply dec:text-xs dec:text-gray-500 dec:italic;
+  }
+
+  .dec-root.dark .dec-sidebar-value-shape {
+    @apply dec:text-gray-400;
+  }
+
+  /* A shell command or a script body. Capped and scrollable so one thirty-line script cannot
+     bury every row beneath it. */
+  .dec-root .dec-sidebar-value-block {
+    @apply dec:mt-0.5 dec:max-h-32 dec:overflow-auto dec:rounded-sm dec:bg-gray-100
+      dec:px-2 dec:py-1.5 dec:text-xs dec:leading-relaxed dec:text-gray-800;
+    font-family: var(--dec-font-mono);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .dec-root.dark .dec-sidebar-value-block {
+    @apply dec:bg-gray-800/60 dec:text-gray-200;
+  }
+
   /* Stacked field (label above value) */
   .dec-root .dec-sidebar-stacked-field {
     @apply dec:py-1.5;
@@ -338,7 +370,7 @@
 
   .dec-root .dec-sidebar-error-field {
     @apply dec:text-sm dec:font-semibold dec:text-red-800;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: var(--dec-font-mono);
   }
 
   .dec-root .dec-sidebar-error-field::after {

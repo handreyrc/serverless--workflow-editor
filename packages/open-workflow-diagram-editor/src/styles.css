@@ -49,6 +49,8 @@
     /* Z-index layering for edges and labels */
     --dec-zindex-edge-label-regular: 1000;
 
+    --dec-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
     /* canvas */
     --dec-canvas-bg: #e9eef3;
     --dec-canvas-pattern: #8897ac;

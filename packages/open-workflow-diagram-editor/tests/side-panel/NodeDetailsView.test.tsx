@@ -46,14 +46,14 @@ describe("NodeDetailsView", () => {
     expect(screen.getByTestId("node-details")).toBeInTheDocument();
     expect(screen.getByText("Properties")).toBeInTheDocument();
     expect(screen.getByText("call")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("http")).toBeInTheDocument();
+    expect(screen.getByText("http")).toBeInTheDocument();
     expect(screen.getByText("with.endpoint")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("https://api.example.com")).toBeInTheDocument();
+    expect(screen.getByText("https://api.example.com")).toBeInTheDocument();
     expect(screen.getByText("then")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("continue")).toBeInTheDocument();
+    expect(screen.getByText("continue")).toBeInTheDocument();
   });
 
-  it("renders number fields as number inputs", () => {
+  it("renders a number field as its literal value", () => {
     const node = makeNode({
       label: "step",
       task: {
@@ -66,14 +66,10 @@ describe("NodeDetailsView", () => {
     renderWithProviders(<NodeDetailsView node={node} />);
 
     expect(screen.getByText("with.retries")).toBeInTheDocument();
-
-    const input = screen.getByDisplayValue("42");
-
-    expect(input).toHaveAttribute("type", "number");
-    expect(input).toBeDisabled();
+    expect(screen.getByText("42")).toBeInTheDocument();
   });
 
-  it("renders boolean fields as switches", () => {
+  it("renders a boolean field as plain text", () => {
     const node = makeNode({
       label: "step",
       task: {
@@ -86,11 +82,7 @@ describe("NodeDetailsView", () => {
     renderWithProviders(<NodeDetailsView node={node} />);
 
     expect(screen.getByText("with.enabled")).toBeInTheDocument();
-
-    const switchControl = screen.getByRole("switch");
-
-    expect(switchControl).toBeChecked();
-    expect(switchControl).toBeDisabled();
+    expect(screen.getByText("true")).toBeInTheDocument();
   });
 
   it.each([
@@ -268,16 +260,15 @@ describe("NodeDetailsView", () => {
 
       expect(screen.getByText("Properties")).toBeInTheDocument();
       expect(screen.getByText("call")).toBeInTheDocument();
-      expect(screen.getByDisplayValue("http")).toBeInTheDocument();
+      expect(screen.getByText("http")).toBeInTheDocument();
       expect(screen.getByText("with.endpoint")).toBeInTheDocument();
-      expect(screen.getByDisplayValue("https://api.example.com")).toBeInTheDocument();
+      expect(screen.getByText("https://api.example.com")).toBeInTheDocument();
     });
 
-    it.each(modes)("renders property controls as disabled in %s mode", (_mode, isReadOnly) => {
-      renderWithProviders(<NodeDetailsView node={node} />, { isReadOnly });
+    it.each(modes)("renders no form controls in %s mode", (_mode, isReadOnly) => {
+      const { container } = renderWithProviders(<NodeDetailsView node={node} />, { isReadOnly });
 
-      expect(screen.getByDisplayValue("http")).toBeDisabled();
-      expect(screen.getByDisplayValue("https://api.example.com")).toBeDisabled();
+      expect(container.querySelector("input, textarea, select, [role='switch']")).toBeNull();
     });
   });
 });
