@@ -17,51 +17,55 @@
 import type * as RF from "@xyflow/react";
 import { dump } from "js-yaml";
 import { useI18n } from "@openworkflowspec/i18n";
-import { getTaskDetails } from "@/core/taskDetails";
 import type { BaseNodeData } from "@/react-flow/nodes/Nodes";
 import { YamlField, SectionHeader } from "./Fields";
-import { ReadOnlyProperties } from "./ReadOnlyProperties";
-import { EditableProperties } from "./EditableProperties";
+import { TaskForm } from "./forms/TaskForm";
 import { useDiagramEditorContext } from "@/store/DiagramEditorContext";
 import { getNodeErrorField, getNodeErrors } from "@/core";
 import { ErrorSection } from "./ErrorsSection";
 
 type NodeDetailsViewProps = {
   node: RF.Node<BaseNodeData>;
+  /** Called by TaskForm on mount with its internal reset function. */
+  onRegisterCancel?: (reset: () => void) => void;
 };
 
-export function NodeDetailsView({ node }: NodeDetailsViewProps) {
+export function NodeDetailsView({ node, onRegisterCancel }: NodeDetailsViewProps) {
   const { t } = useI18n();
   const { errors, taskReferences, isReadOnly } = useDiagramEditorContext();
   const task = node.data.task;
   const taskReference = node.data.taskReference;
 
-  /* Layout-only nodes (entry/exit/start/end) have no taskReference, so no error can be owned by them */
+  /* Layout-only nodes (entry/exit/start/end) have no taskReference */
   const nodeErrors = taskReference ? getNodeErrors(errors, taskReference, taskReferences) : [];
   const errorItems = nodeErrors.map((error) => {
     const field = taskReference ? getNodeErrorField(error, taskReference) : undefined;
     return field !== undefined ? { message: error.message, field } : { message: error.message };
   });
-  const fields = task ? getTaskDetails(task) : [];
 
-  if (nodeErrors.length === 0 && fields.length === 0) {
+  const hasTask = task !== undefined && node.type !== undefined;
+
+  if (nodeErrors.length === 0 && !hasTask) {
     return <p className="dec-sidebar-hint-text">{t("sidebar.noDetails")}</p>;
   }
 
-  /* TODO FUTURE: Once we have a synced text -> diagram view, re-look at the source JSON block, it becomes redundant with dual view but if user wants standalone diagram without text then it is still valid so look at conditionally displaying it */
+  /* TODO FUTURE: Once we have a synced text -> diagram view, re-look at the source JSON block */
   return (
     <div data-testid="node-details">
       <ErrorSection items={errorItems} />
-      {fields.length > 0 && (
+
+      {hasTask && node.type !== undefined && (
         <>
           <SectionHeader label={t("sidebar.sectionProperties")} />
-          {isReadOnly ? (
-            <ReadOnlyProperties fields={fields} />
-          ) : (
-            <EditableProperties fields={fields} />
-          )}
+          <TaskForm
+            nodeType={node.type}
+            task={task}
+            nodeId={node.id}
+            onRegisterCancel={onRegisterCancel}
+          />
         </>
       )}
+
       {isReadOnly && task !== undefined && (
         <>
           <div className="dec-sidebar-section-spacer" />

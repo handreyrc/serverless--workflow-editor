@@ -31,12 +31,29 @@ import { NodeDetailsView } from "@/side-panel/NodeDetailsView";
 import { MermaidActions } from "@/side-panel/MermaidActions";
 import { getNodeVisualConfig } from "@/react-flow/nodes/taskNodeConfig";
 import type { BaseNodeData } from "@/react-flow/nodes/Nodes";
+import { Button } from "@/components/ui/button";
 import "./SidePanel.css";
 
 export function SidePanel() {
-  const { model, nodes, selectedNodeId } = useDiagramEditorContext();
+  const { model, nodes, selectedNodeId, isReadOnly } = useDiagramEditorContext();
   const { setOpen } = useSidebar();
   const { t } = useI18n();
+
+  // Ref to TaskForm's reset function — populated when TaskForm mounts via onRegisterCancel.
+  const cancelRef = React.useRef<(() => void) | null>(null);
+
+  const handleCancel = React.useCallback(() => {
+    cancelRef.current?.();
+  }, []);
+
+  const handleApply = React.useCallback(() => {
+    // Intentionally no-op — will be implemented in a subsequent task.
+  }, []);
+
+  // TaskForm calls this with its internal reset function on mount.
+  const onRegisterCancel = React.useCallback((fn: () => void) => {
+    cancelRef.current = fn;
+  }, []);
 
   const selectedNode = React.useMemo(
     () =>
@@ -91,7 +108,7 @@ export function SidePanel() {
       </SidebarHeader>
       <SidebarContent aria-label={t("aria.panel.content")} role="region">
         {selectedNode ? (
-          <NodeDetailsView node={selectedNode} />
+          <NodeDetailsView node={selectedNode} onRegisterCancel={onRegisterCancel} />
         ) : (
           <>
             <div className="dec-sidebar-hint">
@@ -105,6 +122,29 @@ export function SidePanel() {
       {model !== null && selectedNodeId === null ? (
         <SidebarFooter aria-label={t("aria.panel.exportActions")}>
           <MermaidActions model={model} />
+        </SidebarFooter>
+      ) : null}
+      {selectedNode !== null && !isReadOnly ? (
+        <SidebarFooter className="dec-task-form-actions" aria-label={t("aria.panel.formActions")}>
+          <div className="dec-task-form-actions-row">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleCancel}
+              aria-label={t("sidebar.form.cancel")}
+            >
+              {t("sidebar.form.cancel")}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleApply}
+              aria-label={t("sidebar.form.apply")}
+            >
+              {t("sidebar.form.apply")}
+            </Button>
+          </div>
         </SidebarFooter>
       ) : null}
     </Sidebar>

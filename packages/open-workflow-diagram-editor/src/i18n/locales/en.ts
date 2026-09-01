@@ -58,6 +58,13 @@ export const en = {
   "sidebar.duration.title": "Enter an ISO 8601 duration, for example PT30S or PT5M",
   "sidebar.field.item": "item",
   "sidebar.field.items": "items",
+  "sidebar.form.cancel": "Cancel",
+  "sidebar.form.apply": "Apply",
+  "sidebar.form.selectOption": "Select an option",
+  "sidebar.form.thenPlaceholder": "Select next task…",
+  "sidebar.form.thenBlank": "(none)",
+  "aria.form.taskProperties": "Task properties form",
+  "aria.panel.formActions": "Form actions",
 } as const;
 
 export type TranslationKeys = keyof typeof en;

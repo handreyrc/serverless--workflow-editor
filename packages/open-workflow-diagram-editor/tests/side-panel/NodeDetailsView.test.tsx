@@ -29,10 +29,9 @@ const makeNode = (data: BaseNodeData, type = "call"): RF.Node<BaseNodeData> => (
 });
 
 describe("NodeDetailsView", () => {
-  it("renders every task field as a path labelled row under the Properties header", () => {
+  it("renders the Properties section and form fields for a task node", () => {
     const node = makeNode({
       label: "getPets",
-      // eslint-disable-next-line unicorn/no-thenable -- 'then' is a real SWF directive
       task: {
         call: "http",
         with: { endpoint: "https://api.example.com" },
@@ -45,68 +44,55 @@ describe("NodeDetailsView", () => {
 
     expect(screen.getByTestId("node-details")).toBeInTheDocument();
     expect(screen.getByText("Properties")).toBeInTheDocument();
-    expect(screen.getByText("call")).toBeInTheDocument();
-    expect(screen.getByText("http")).toBeInTheDocument();
-    expect(screen.getByText("with.endpoint")).toBeInTheDocument();
-    expect(screen.getByText("https://api.example.com")).toBeInTheDocument();
-    expect(screen.getByText("then")).toBeInTheDocument();
-    expect(screen.getByText("continue")).toBeInTheDocument();
+    // The form renders a properties form — at minimum the Properties section header appears
+    // (individual field assertions are in TaskForm tests)
+    expect(screen.getByRole("form", { name: "Task properties form" })).toBeInTheDocument();
   });
 
-  it("renders a number field as its literal value", () => {
+  it("renders the task's property form in read-only mode", () => {
     const node = makeNode({
-      label: "step",
+      label: "getPets",
       task: {
-        with: {
-          retries: 42,
-        },
+        call: "http",
+        with: { endpoint: "https://api.example.com" },
       },
     });
 
-    renderWithProviders(<NodeDetailsView node={node} />);
+    renderWithProviders(<NodeDetailsView node={node} />, { isReadOnly: true });
 
-    expect(screen.getByText("with.retries")).toBeInTheDocument();
-    expect(screen.getByText("42")).toBeInTheDocument();
+    expect(screen.getByText("Properties")).toBeInTheDocument();
+    expect(screen.getByRole("form", { name: "Task properties form" })).toBeInTheDocument();
   });
 
-  it("renders a boolean field as plain text", () => {
+  it("renders the task's property form in editable mode", () => {
     const node = makeNode({
-      label: "step",
+      label: "getPets",
       task: {
-        with: {
-          enabled: true,
-        },
+        call: "http",
+        with: { endpoint: "https://api.example.com" },
       },
     });
 
-    renderWithProviders(<NodeDetailsView node={node} />);
+    renderWithProviders(<NodeDetailsView node={node} />, { isReadOnly: false });
 
-    expect(screen.getByText("with.enabled")).toBeInTheDocument();
-    expect(screen.getByText("true")).toBeInTheDocument();
+    expect(screen.getByText("Properties")).toBeInTheDocument();
+    expect(screen.getByRole("form", { name: "Task properties form" })).toBeInTheDocument();
+    // Cancel/Apply buttons live in SidePanel's SidebarFooter, outside NodeDetailsView
   });
 
-  it.each([
-    { length: 1, text: "1 item" },
-    { length: 2, text: "2 items" },
-  ])("renders an array field as a summary $text", ({ length, text }) => {
-    const items = Array.from({ length }, () => ({}));
-    const node = makeNode({ label: "step", task: { switch: items } });
-
-    renderWithProviders(<NodeDetailsView node={node} />);
-
-    expect(screen.getByText("switch")).toBeInTheDocument();
-    expect(screen.getByText(text)).toBeInTheDocument();
-  });
-
-  it("renders an object field as a placeholder glyph (full value in source)", () => {
+  it("does not render Cancel/Apply buttons inside NodeDetailsView (they live in SidebarFooter)", () => {
     const node = makeNode({
-      label: "step",
-      task: { with: { a: { b: { client: { config: { z: 1 } } } } } },
+      label: "getPets",
+      task: {
+        call: "http",
+        with: { endpoint: "https://api.example.com" },
+      },
     });
 
-    renderWithProviders(<NodeDetailsView node={node} />);
-    expect(screen.getByText("with.a.b.client.config")).toBeInTheDocument();
-    expect(screen.getByText("{...}")).toBeInTheDocument();
+    // In either mode, NodeDetailsView itself contains no Cancel/Apply buttons
+    renderWithProviders(<NodeDetailsView node={node} />, { isReadOnly: false });
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
   });
 
   it("renders a collapsed Source section with full yaml task", () => {
@@ -236,39 +222,6 @@ describe("NodeDetailsView", () => {
       expect(screen.queryByRole("heading", { name: "Source" })).not.toBeInTheDocument();
       expect(container.querySelector(".dec-sidebar-yaml-summary")).toBeNull();
       expect(container.querySelector(".dec-sidebar-yaml-pre")).toBeNull();
-    });
-  });
-
-  describe("read-only and editable modes", () => {
-    const node = makeNode({
-      label: "getPets",
-      task: {
-        call: "http",
-        with: { endpoint: "https://api.example.com" },
-      },
-    });
-
-    const modes = [
-      ["read-only", true],
-      ["editable", false],
-    ] as const;
-
-    /* The read-only/edit split is the same until the react-hook-form editor
-      lands, so both branches render the same property rows. */
-    it.each(modes)("renders the task's property rows in %s mode", (_mode, isReadOnly) => {
-      renderWithProviders(<NodeDetailsView node={node} />, { isReadOnly });
-
-      expect(screen.getByText("Properties")).toBeInTheDocument();
-      expect(screen.getByText("call")).toBeInTheDocument();
-      expect(screen.getByText("http")).toBeInTheDocument();
-      expect(screen.getByText("with.endpoint")).toBeInTheDocument();
-      expect(screen.getByText("https://api.example.com")).toBeInTheDocument();
-    });
-
-    it.each(modes)("renders no form controls in %s mode", (_mode, isReadOnly) => {
-      const { container } = renderWithProviders(<NodeDetailsView node={node} />, { isReadOnly });
-
-      expect(container.querySelector("input, textarea, select, [role='switch']")).toBeNull();
     });
   });
 });

@@ -23,5 +23,6 @@ export * from "./taskSubType";
 export * from "./elkjs";
 export * from "./mermaidExport";
 export * from "./schemaFilter";
+export * from "./schemaWalker";
 /* TEMPORARY — remove with the workaround; see the revert checklist in workflowSdk.ts. */
 export * from "./specWorkarounds";

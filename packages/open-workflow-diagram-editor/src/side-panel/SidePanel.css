@@ -421,4 +421,183 @@
     @apply dec:bg-red-300;
   }
     /* end validation errors */
+
+  /* ── Task form ─────────────────────────────────────────────────────────── */
+
+  .dec-root .dec-task-form {
+    @apply dec:flex dec:flex-col dec:gap-0;
+  }
+
+  .dec-root .dec-task-form-fields {
+    @apply dec:flex dec:flex-col;
+  }
+
+  /* Individual field row */
+  .dec-root .dec-form-field {
+    @apply dec:py-2 dec:px-1 dec:border-b dec:border-gray-100;
+  }
+
+  .dec-root.dark .dec-form-field {
+    @apply dec:border-gray-800;
+  }
+
+  .dec-root .dec-form-field-label-row {
+    @apply dec:flex dec:items-center dec:gap-1 dec:mb-1;
+  }
+
+  .dec-root .dec-form-field-label {
+    @apply dec:text-xs dec:text-gray-500 dec:font-medium;
+    overflow-wrap: anywhere;
+  }
+
+  .dec-root.dark .dec-form-field-label {
+    @apply dec:text-gray-400;
+  }
+
+  .dec-root .dec-form-field-required {
+    @apply dec:text-red-500;
+  }
+
+  /* Help (?) button */
+  .dec-root .dec-form-field-help {
+    @apply dec:inline-flex dec:items-center dec:justify-center dec:rounded-full
+      dec:text-gray-400 dec:bg-transparent dec:border-0 dec:p-0 dec:cursor-pointer
+      dec:hover:text-gray-600 dec:focus-visible:outline dec:focus-visible:outline-2
+      dec:focus-visible:outline-blue-500;
+  }
+
+  .dec-root.dark .dec-form-field-help {
+    @apply dec:text-gray-500 dec:hover:text-gray-300;
+  }
+
+  .dec-root .dec-form-field-help-icon {
+    @apply dec:h-3 dec:w-3;
+  }
+
+  .dec-root .dec-form-field-control {
+    @apply dec:w-full;
+  }
+
+  /* Runtime expression input */
+  .dec-root .dec-form-expression-input {
+    font-family: var(--dec-font-mono);
+    @apply dec:text-xs;
+  }
+
+  /* Object group (collapsible) */
+  .dec-root .dec-form-object-group {
+    @apply dec:border-b dec:border-gray-100;
+  }
+
+  .dec-root.dark .dec-form-object-group {
+    @apply dec:border-gray-800;
+  }
+
+  .dec-root .dec-form-object-header {
+    @apply dec:flex dec:w-full dec:items-center dec:gap-1 dec:py-2 dec:px-1
+      dec:text-left dec:bg-transparent dec:border-0 dec:cursor-pointer dec:rounded-sm
+      dec:hover:bg-gray-100/60;
+  }
+
+  .dec-root.dark .dec-form-object-header {
+    @apply dec:hover:bg-gray-800/40;
+  }
+
+  .dec-root .dec-form-object-chevron {
+    @apply dec:h-3 dec:w-3 dec:shrink-0 dec:text-gray-400;
+  }
+
+  .dec-root .dec-form-object-label {
+    @apply dec:text-xs dec:font-medium dec:text-gray-600;
+  }
+
+  .dec-root.dark .dec-form-object-label {
+    @apply dec:text-gray-300;
+  }
+
+  .dec-root .dec-form-object-children {
+    @apply dec:pl-3 dec:border-l dec:border-gray-200 dec:ml-2 dec:mb-1;
+  }
+
+  .dec-root.dark .dec-form-object-children {
+    @apply dec:border-gray-700;
+  }
+
+  /* oneOf group */
+  .dec-root .dec-form-oneof-group {
+    @apply dec:border-b dec:border-gray-100;
+  }
+
+  .dec-root.dark .dec-form-oneof-group {
+    @apply dec:border-gray-800;
+  }
+
+  .dec-root .dec-form-oneof-children {
+    @apply dec:pl-3 dec:border-l dec:border-gray-200 dec:ml-2 dec:mb-1;
+  }
+
+  .dec-root.dark .dec-form-oneof-children {
+    @apply dec:border-gray-700;
+  }
+
+  /* Child task list */
+  .dec-root .dec-form-child-list {
+    @apply dec:list-none dec:p-0 dec:m-0 dec:flex dec:flex-col dec:gap-0.5;
+  }
+
+  .dec-root .dec-form-child-list-item {
+    @apply dec:text-xs dec:font-mono dec:text-gray-700 dec:bg-gray-100 dec:rounded-sm
+      dec:px-2 dec:py-0.5;
+    overflow-wrap: anywhere;
+  }
+
+  .dec-root.dark .dec-form-child-list-item {
+    @apply dec:text-gray-300 dec:bg-gray-800;
+  }
+
+  .dec-root .dec-form-child-list-empty {
+    @apply dec:text-xs dec:text-gray-400 dec:italic;
+  }
+
+  /* "then" field blank option */
+  .dec-root .dec-form-then-empty {
+    @apply dec:italic dec:text-gray-400;
+  }
+
+  /* Cancel / Apply action bar — rendered in SidebarFooter, outside the scroll area */
+  .dec-root .dec-task-form-actions {
+    @apply dec:border-t dec:border-gray-200 dec:px-2 dec:pt-2 dec:pb-1;
+  }
+
+  .dec-root.dark .dec-task-form-actions {
+    @apply dec:border-gray-700;
+  }
+
+  /* Inner row: side-by-side buttons */
+  .dec-root .dec-task-form-actions-row {
+    @apply dec:flex dec:flex-row dec:gap-2;
+  }
+
+  /* Both buttons share the row equally */
+  .dec-root .dec-task-form-actions-row > button {
+    @apply dec:flex-1;
+  }
+
+  /* Cancel — always-visible border */
+  .dec-root .dec-task-form-actions-row > button[data-variant="outline"] {
+    @apply dec:border-gray-400;
+  }
+
+  .dec-root.dark .dec-task-form-actions-row > button[data-variant="outline"] {
+    @apply dec:border-gray-500;
+  }
+
+  /* Apply — explicit border so it looks like a button in dark mode */
+  .dec-root .dec-task-form-actions-row > button[data-variant="default"] {
+    @apply dec:border dec:border-blue-600;
+  }
+
+  .dec-root.dark .dec-task-form-actions-row > button[data-variant="default"] {
+    @apply dec:border dec:border-blue-500;
+  }
 }
