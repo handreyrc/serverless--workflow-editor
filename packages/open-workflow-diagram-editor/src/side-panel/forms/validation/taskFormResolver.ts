@@ -17,6 +17,7 @@
 import { get } from "react-hook-form";
 import type { Resolver, FieldErrors, FieldError } from "react-hook-form";
 import type { FormFieldDescriptor } from "@/side-panel/forms/schemaToFormFields";
+import type { FormErrors } from "@/side-panel/forms/customErrors";
 
 // ---------------------------------------------------------------------------
 // ISO-8601 duration pattern (same as DurationControl)
@@ -33,7 +34,11 @@ const ISO_8601_DURATION_RE =
  * Validates a single flattened form value against its field descriptor.
  * Returns an error message string when invalid, or `undefined` when valid.
  */
-function validateLeaf(field: FormFieldDescriptor, value: unknown): string | undefined {
+function validateLeaf(
+  field: FormFieldDescriptor,
+  value: unknown,
+  errors: FormErrors,
+): string | undefined {
   // child-task-list and object/one-of containers are never directly validated
   if (field.kind === "child-task-list" || field.kind === "object" || field.kind === "one-of") {
     return undefined;
@@ -43,7 +48,7 @@ function validateLeaf(field: FormFieldDescriptor, value: unknown): string | unde
     value === undefined || value === null || (typeof value === "string" && value.trim() === "");
 
   if (field.required && isEmpty) {
-    return `${field.label} is required`;
+    return errors.required(field.label);
   }
 
   if (isEmpty) return undefined;
@@ -51,25 +56,25 @@ function validateLeaf(field: FormFieldDescriptor, value: unknown): string | unde
   switch (field.kind) {
     case "number": {
       if (typeof value !== "number" && (typeof value !== "string" || isNaN(Number(value)))) {
-        return `${field.label} must be a number`;
+        return errors.mustBeNumber(field.label);
       }
       break;
     }
     case "boolean": {
       if (typeof value !== "boolean") {
-        return `${field.label} must be a boolean`;
+        return errors.mustBeBoolean(field.label);
       }
       break;
     }
     case "enum": {
       if (typeof value === "string" && !field.options.includes(value)) {
-        return `${field.label} must be one of: ${field.options.join(", ")}`;
+        return errors.mustBeOneOf(field.label, field.options);
       }
       break;
     }
     case "duration": {
       if (typeof value === "string" && !ISO_8601_DURATION_RE.test(value)) {
-        return `${field.label} must be a valid ISO 8601 duration (e.g. PT30S)`;
+        return errors.mustBeDuration(field.label);
       }
       break;
     }
@@ -151,6 +156,7 @@ function collectLeafFields(
  */
 export function buildTaskFormResolver(
   fields: FormFieldDescriptor[],
+  formErrors: FormErrors,
 ): Resolver<Record<string, unknown>> {
   return (values) => {
     // Collect leaves on every validation run so the active one-of variant is
@@ -164,7 +170,7 @@ export function buildTaskFormResolver(
       // the first onChange/register cycle, not at values["with.method"]).
       // Use RHF's own `get()` helper so we always read the current live value.
       const value = get(values, field.path) as unknown;
-      const message = validateLeaf(field, value);
+      const message = validateLeaf(field, value, formErrors);
       if (message !== undefined) {
         errors[field.path] = {
           type: "schema",

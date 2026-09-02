@@ -65,6 +65,11 @@ export const en = {
   "sidebar.form.thenBlank": "(none)",
   "aria.form.taskProperties": "Task properties form",
   "aria.panel.formActions": "Form actions",
+  "form.error.required": "{field} is required",
+  "form.error.mustBeNumber": "{field} must be a number",
+  "form.error.mustBeBoolean": "{field} must be a boolean",
+  "form.error.mustBeOneOf": "{field} must be one of: {options}",
+  "form.error.mustBeDuration": "{field} must be a valid ISO 8601 duration (e.g. PT30S)",
 } as const;
 
 export type TranslationKeys = keyof typeof en;

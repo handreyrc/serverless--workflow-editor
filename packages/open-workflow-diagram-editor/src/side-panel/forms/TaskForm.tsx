@@ -24,6 +24,7 @@ import { useSiblingTaskNames } from "./useSiblingTaskNames";
 import { useDiagramEditorContext } from "@/store/DiagramEditorContext";
 import { TaskFormContext, filterReadOnlyFields } from "./taskFormContext";
 import { buildTaskFormResolver, useWorkflowErrorsForForm } from "./validation";
+import { buildFormErrors } from "./customErrors";
 export type { TaskFormContextType } from "./taskFormContext";
 export { useTaskFormContext } from "./taskFormContext";
 
@@ -114,11 +115,13 @@ export function TaskForm({
   );
 
   // ── react-hook-form ───────────────────────────────────────────────────────
+  const formErrors = React.useMemo(() => buildFormErrors(t), [t]);
+
   const resolver = React.useMemo(
-    () => (isReadOnly ? undefined : buildTaskFormResolver(allFields)),
-    // resolver only needs to change when allFields changes (i.e. node type changes)
+    () => (isReadOnly ? undefined : buildTaskFormResolver(allFields, formErrors)),
+    // resolver only needs to change when allFields or locale-derived formErrors change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allFields, isReadOnly],
+    [allFields, isReadOnly, formErrors],
   );
 
   const methods = useForm<Record<string, unknown>>({
