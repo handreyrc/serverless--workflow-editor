@@ -15,7 +15,7 @@
  */
 
 import * as React from "react";
-import { Controller, useFormContext } from "react-hook-form";
+import { Controller, useFormContext, useFormState, get } from "react-hook-form";
 import { useI18n } from "@openworkflowspec/i18n";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +32,42 @@ import type {
   DurationField,
 } from "./schemaToFormFields";
 import { useTaskFormContext } from "./taskFormContext";
+
+// ---------------------------------------------------------------------------
+// Helper: resolve field-level error message from RHF form state
+// ---------------------------------------------------------------------------
+
+function useFieldError(path: string): string | undefined {
+  const { errors } = useFormState<Record<string, unknown>>();
+  // RHF stores errors as nested objects even when field names use dot-notation
+  // (e.g. "with.method" is stored at errors.with.method, not errors["with.method"]).
+  // Use RHF's own `get()` helper to traverse the nested path correctly.
+  const error = get(errors, path) as { message?: string } | undefined;
+  return error?.message;
+}
+
+// ---------------------------------------------------------------------------
+// FieldWithError — wraps a control and shows an inline error message beneath
+// ---------------------------------------------------------------------------
+
+function FieldWithError({
+  errorMessage,
+  children,
+}: {
+  errorMessage: string | undefined;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="dec-form-field-input-wrap">
+      {children}
+      {errorMessage !== undefined && (
+        <p className="dec-form-field-error" role="alert">
+          {errorMessage}
+        </p>
+      )}
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // ISO 8601 duration regex
@@ -73,6 +109,7 @@ export function FieldControl({ field }: FieldControlProps) {
 function StringControl({ field }: { field: StringField }) {
   const { control } = useFormContext<Record<string, unknown>>();
   const { isReadOnly } = useTaskFormContext();
+  const errorMessage = useFieldError(field.path);
 
   const placeholder = field.isRuntimeExpression ? "${...}" : undefined;
 
@@ -84,24 +121,30 @@ function StringControl({ field }: { field: StringField }) {
         const strValue = rhfField.value == null ? "" : String(rhfField.value);
         if (field.multiline) {
           return (
-            <Textarea
+            <FieldWithError errorMessage={errorMessage}>
+              <Textarea
+                {...rhfField}
+                value={strValue}
+                disabled={isReadOnly}
+                readOnly={isReadOnly}
+                placeholder={placeholder}
+                aria-invalid={errorMessage !== undefined || undefined}
+              />
+            </FieldWithError>
+          );
+        }
+        return (
+          <FieldWithError errorMessage={errorMessage}>
+            <Input
               {...rhfField}
               value={strValue}
               disabled={isReadOnly}
               readOnly={isReadOnly}
               placeholder={placeholder}
+              className={field.isRuntimeExpression ? "dec-form-expression-input" : undefined}
+              aria-invalid={errorMessage !== undefined || undefined}
             />
-          );
-        }
-        return (
-          <Input
-            {...rhfField}
-            value={strValue}
-            disabled={isReadOnly}
-            readOnly={isReadOnly}
-            placeholder={placeholder}
-            className={field.isRuntimeExpression ? "dec-form-expression-input" : undefined}
-          />
+          </FieldWithError>
         );
       }}
     />
@@ -115,23 +158,27 @@ function StringControl({ field }: { field: StringField }) {
 function NumberControl({ field }: { field: NumberField }) {
   const { control } = useFormContext<Record<string, unknown>>();
   const { isReadOnly } = useTaskFormContext();
+  const errorMessage = useFieldError(field.path);
 
   return (
     <Controller
       name={field.path}
       control={control}
       render={({ field: rhfField }) => (
-        <Input
-          type="number"
-          value={rhfField.value == null ? "" : String(rhfField.value)}
-          onChange={(e) =>
-            rhfField.onChange(e.target.value === "" ? undefined : Number(e.target.value))
-          }
-          onBlur={rhfField.onBlur}
-          name={rhfField.name}
-          disabled={isReadOnly}
-          readOnly={isReadOnly}
-        />
+        <FieldWithError errorMessage={errorMessage}>
+          <Input
+            type="number"
+            value={rhfField.value == null ? "" : String(rhfField.value)}
+            onChange={(e) =>
+              rhfField.onChange(e.target.value === "" ? undefined : Number(e.target.value))
+            }
+            onBlur={rhfField.onBlur}
+            name={rhfField.name}
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
+            aria-invalid={errorMessage !== undefined || undefined}
+          />
+        </FieldWithError>
       )}
     />
   );
@@ -169,31 +216,35 @@ function EnumControl({ field }: { field: EnumField }) {
   const { control } = useFormContext<Record<string, unknown>>();
   const { isReadOnly } = useTaskFormContext();
   const { t } = useI18n();
+  const errorMessage = useFieldError(field.path);
 
   return (
     <Controller
       name={field.path}
       control={control}
       render={({ field: rhfField }) => (
-        <Select
-          value={(rhfField.value as string) ?? ""}
-          onChange={!isReadOnly ? (e) => rhfField.onChange(e.target.value) : undefined}
-          onBlur={rhfField.onBlur}
-          name={rhfField.name}
-          disabled={isReadOnly}
-          aria-label={field.label}
-        >
-          {!rhfField.value && (
-            <option value="" disabled>
-              {t("sidebar.form.selectOption")}
-            </option>
-          )}
-          {field.options.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </Select>
+        <FieldWithError errorMessage={errorMessage}>
+          <Select
+            value={(rhfField.value as string) ?? ""}
+            onChange={!isReadOnly ? (e) => rhfField.onChange(e.target.value) : undefined}
+            onBlur={rhfField.onBlur}
+            name={rhfField.name}
+            disabled={isReadOnly}
+            aria-label={field.label}
+            aria-invalid={errorMessage !== undefined || undefined}
+          >
+            {!rhfField.value && (
+              <option value="" disabled>
+                {t("sidebar.form.selectOption")}
+              </option>
+            )}
+            {field.options.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </Select>
+        </FieldWithError>
       )}
     />
   );
@@ -207,23 +258,27 @@ function DurationControl({ field }: { field: DurationField }) {
   const { control } = useFormContext<Record<string, unknown>>();
   const { isReadOnly } = useTaskFormContext();
   const { t } = useI18n();
+  const errorMessage = useFieldError(field.path);
 
   return (
     <Controller
       name={field.path}
       control={control}
       render={({ field: rhfField }) => (
-        <Input
-          value={rhfField.value == null ? "" : String(rhfField.value)}
-          onChange={rhfField.onChange}
-          onBlur={rhfField.onBlur}
-          name={rhfField.name}
-          pattern={ISO_8601_DURATION_PATTERN}
-          title={t("sidebar.duration.title")}
-          disabled={isReadOnly}
-          readOnly={isReadOnly}
-          placeholder="PT30S"
-        />
+        <FieldWithError errorMessage={errorMessage}>
+          <Input
+            value={rhfField.value == null ? "" : String(rhfField.value)}
+            onChange={rhfField.onChange}
+            onBlur={rhfField.onBlur}
+            name={rhfField.name}
+            pattern={ISO_8601_DURATION_PATTERN}
+            title={t("sidebar.duration.title")}
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
+            placeholder="PT30S"
+            aria-invalid={errorMessage !== undefined || undefined}
+          />
+        </FieldWithError>
       )}
     />
   );
@@ -236,27 +291,31 @@ function DurationControl({ field }: { field: DurationField }) {
 function ThenControl({ field }: { field: ThenField }) {
   const { control } = useFormContext<Record<string, unknown>>();
   const { isReadOnly, siblingTaskNames } = useTaskFormContext();
+  const errorMessage = useFieldError(field.path);
 
   return (
     <Controller
       name={field.path}
       control={control}
       render={({ field: rhfField }) => (
-        <Select
-          value={(rhfField.value as string) ?? ""}
-          onChange={!isReadOnly ? (e) => rhfField.onChange(e.target.value) : undefined}
-          onBlur={rhfField.onBlur}
-          name={rhfField.name}
-          disabled={isReadOnly}
-          aria-label={field.label}
-        >
-          <option value="">—</option>
-          {siblingTaskNames.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </Select>
+        <FieldWithError errorMessage={errorMessage}>
+          <Select
+            value={(rhfField.value as string) ?? ""}
+            onChange={!isReadOnly ? (e) => rhfField.onChange(e.target.value) : undefined}
+            onBlur={rhfField.onBlur}
+            name={rhfField.name}
+            disabled={isReadOnly}
+            aria-label={field.label}
+            aria-invalid={errorMessage !== undefined || undefined}
+          >
+            <option value="">—</option>
+            {siblingTaskNames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </Select>
+        </FieldWithError>
       )}
     />
   );

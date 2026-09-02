@@ -18,11 +18,12 @@ import * as React from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import type { Specification } from "@openworkflowspec/sdk";
 import { useI18n } from "@openworkflowspec/i18n";
-import { getFormFieldsForNodeType } from "@/core/schemaWalker";
+import { getFormFieldsForNodeType, structuralEqual } from "@/core";
 import { FormField } from "./FormField";
 import { useSiblingTaskNames } from "./useSiblingTaskNames";
 import { useDiagramEditorContext } from "@/store/DiagramEditorContext";
 import { TaskFormContext, filterReadOnlyFields } from "./taskFormContext";
+import { buildTaskFormResolver, useWorkflowErrorsForForm } from "./validation";
 export type { TaskFormContextType } from "./taskFormContext";
 export { useTaskFormContext } from "./taskFormContext";
 
@@ -71,16 +72,33 @@ export type TaskFormProps = {
    */
   nodeId?: string | undefined;
   /**
+   * The RFC 6901-style indexed task reference (e.g. `/do/0/step1`).
+   * Used to map workflow-level SDK errors to form fields on initial load.
+   */
+  taskReference?: string | undefined;
+  /**
    * Called on mount (and whenever the task changes) with the form's internal
    * reset function, so that the Cancel button rendered outside this component
    * can trigger a reset without lifting state.
    */
   onRegisterCancel?: ((reset: () => void) => void) | undefined;
+  /**
+   * Called whenever the form validity changes.  The Apply button rendered
+   * outside this component uses this to enable/disable itself.
+   */
+  onValidityChange?: ((isValid: boolean) => void) | undefined;
 };
 
-export function TaskForm({ nodeType, task, nodeId, onRegisterCancel }: TaskFormProps) {
+export function TaskForm({
+  nodeType,
+  task,
+  nodeId,
+  taskReference,
+  onRegisterCancel,
+  onValidityChange,
+}: TaskFormProps) {
   const { t } = useI18n();
-  const { isReadOnly, model } = useDiagramEditorContext();
+  const { isReadOnly, model, errors, taskReferences } = useDiagramEditorContext();
   const siblingTaskNames = useSiblingTaskNames(model, nodeId);
 
   // ── Resolve form fields from schema ───────────────────────────────────────
@@ -96,18 +114,43 @@ export function TaskForm({ nodeType, task, nodeId, onRegisterCancel }: TaskFormP
   );
 
   // ── react-hook-form ───────────────────────────────────────────────────────
+  const resolver = React.useMemo(
+    () => (isReadOnly ? undefined : buildTaskFormResolver(allFields)),
+    // resolver only needs to change when allFields changes (i.e. node type changes)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allFields, isReadOnly],
+  );
+
   const methods = useForm<Record<string, unknown>>({
     defaultValues,
-    // Validation will be wired here in a subsequent task (AJV resolver).
+    // On-blur mode: validate each field when it loses focus.
+    mode: "onBlur",
+    ...(resolver !== undefined ? { resolver } : {}),
   });
 
-  const { reset } = methods;
+  const { reset, setError, formState } = methods;
 
-  // Reset form whenever the selected task changes
+  // Track the last task value we successfully reset to, so we can detect
+  // genuine model changes (e.g. undo/redo, external content prop) while the
+  // same node stays selected.
+  const prevTaskRef = React.useRef<Specification.Task>(task);
+
+  // Reset form whenever the selected task changes (node selection change).
   React.useEffect(() => {
+    prevTaskRef.current = task;
     reset(flattenTask(task as unknown));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodeId, reset]);
+
+  // Reset form when the model changes externally while the same node is still
+  // selected (e.g. undo/redo, external content prop update). We compare
+  // structurally to avoid spurious resets when the nodes array is rebuilt
+  // with identical content.
+  React.useEffect(() => {
+    if (structuralEqual(task, prevTaskRef.current)) return;
+    prevTaskRef.current = task;
+    reset(flattenTask(task as unknown));
+  }, [task, reset]);
 
   // ── Read-only: filter fields ──────────────────────────────────────────────
   const visibleFields = React.useMemo(() => {
@@ -115,10 +158,26 @@ export function TaskForm({ nodeType, task, nodeId, onRegisterCancel }: TaskFormP
     return filterReadOnlyFields(allFields, task as Record<string, unknown>);
   }, [allFields, isReadOnly, task]);
 
+  // ── Seed form errors from existing workflow-level SDK errors (edit mode) ──
+  useWorkflowErrorsForForm(errors, taskReference, taskReferences, setError, nodeId);
+
   // Register the reset function with the parent (SidePanel) whenever the task changes.
   React.useEffect(() => {
     onRegisterCancel?.(() => reset(flattenTask(task as unknown)));
   }, [onRegisterCancel, reset, task]);
+
+  // Notify the parent whenever the Apply-enabled state changes.
+  // Apply is enabled when the form is dirty (has unsaved changes) and has no
+  // validation errors. We deliberately avoid relying on `formState.isValid`
+  // because in mode:"onBlur" it stays false until the first blur/trigger cycle,
+  // which would incorrectly keep Apply disabled after a first-time field edit.
+  const hasErrors = Object.keys(formState.errors).length > 0;
+  const canApply = formState.isDirty && !hasErrors;
+
+  React.useEffect(() => {
+    if (isReadOnly) return;
+    onValidityChange?.(canApply);
+  }, [isReadOnly, onValidityChange, canApply]);
 
   if (allFields.length === 0 || visibleFields.length === 0) return null;
 

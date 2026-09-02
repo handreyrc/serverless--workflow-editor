@@ -42,17 +42,28 @@ export function SidePanel() {
   // Ref to TaskForm's reset function — populated when TaskForm mounts via onRegisterCancel.
   const cancelRef = React.useRef<(() => void) | null>(null);
 
+  // Apply button is enabled only when the form reports itself valid.
+  const [isApplyEnabled, setIsApplyEnabled] = React.useState(false);
+
   const handleCancel = React.useCallback(() => {
     cancelRef.current?.();
   }, []);
 
   const handleApply = React.useCallback(() => {
-    // Intentionally no-op — will be implemented in a subsequent task.
+    // TODO: trigger model update when model-update API is wired up.
   }, []);
 
   // TaskForm calls this with its internal reset function on mount.
   const onRegisterCancel = React.useCallback((fn: () => void) => {
     cancelRef.current = fn;
+  }, []);
+
+  // Reset Apply enabled state whenever the selected node changes.
+  const prevSelectedNodeId = React.useRef(selectedNodeId);
+
+  // TaskForm calls this whenever its validity changes.
+  const onValidityChange = React.useCallback((isValid: boolean) => {
+    setIsApplyEnabled(isValid);
   }, []);
 
   const selectedNode = React.useMemo(
@@ -68,7 +79,12 @@ export function SidePanel() {
 
   const HeaderIcon = selectedNode ? (nodeConfig?.icon ?? Box) : Workflow;
 
-  const prevSelectedNodeId = React.useRef(selectedNodeId);
+  React.useEffect(() => {
+    if (selectedNodeId !== prevSelectedNodeId.current) {
+      setIsApplyEnabled(false);
+    }
+  }, [selectedNodeId]);
+
   React.useEffect(() => {
     if (selectedNodeId === prevSelectedNodeId.current) {
       return;
@@ -108,7 +124,11 @@ export function SidePanel() {
       </SidebarHeader>
       <SidebarContent aria-label={t("aria.panel.content")} role="region">
         {selectedNode ? (
-          <NodeDetailsView node={selectedNode} onRegisterCancel={onRegisterCancel} />
+          <NodeDetailsView
+            node={selectedNode}
+            onRegisterCancel={onRegisterCancel}
+            onValidityChange={onValidityChange}
+          />
         ) : (
           <>
             <div className="dec-sidebar-hint">
@@ -139,6 +159,7 @@ export function SidePanel() {
             <Button
               type="button"
               size="sm"
+              disabled={!isApplyEnabled}
               onClick={handleApply}
               aria-label={t("sidebar.form.apply")}
             >

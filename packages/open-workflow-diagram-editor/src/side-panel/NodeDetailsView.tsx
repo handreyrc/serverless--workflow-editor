@@ -28,9 +28,15 @@ type NodeDetailsViewProps = {
   node: RF.Node<BaseNodeData>;
   /** Called by TaskForm on mount with its internal reset function. */
   onRegisterCancel?: (reset: () => void) => void;
+  /** Called whenever form validity changes, so the Apply button can be enabled/disabled. */
+  onValidityChange?: (isValid: boolean) => void;
 };
 
-export function NodeDetailsView({ node, onRegisterCancel }: NodeDetailsViewProps) {
+export function NodeDetailsView({
+  node,
+  onRegisterCancel,
+  onValidityChange,
+}: NodeDetailsViewProps) {
   const { t } = useI18n();
   const { errors, taskReferences, isReadOnly } = useDiagramEditorContext();
   const task = node.data.task;
@@ -61,7 +67,9 @@ export function NodeDetailsView({ node, onRegisterCancel }: NodeDetailsViewProps
             nodeType={node.type}
             task={task}
             nodeId={node.id}
+            taskReference={taskReference}
             onRegisterCancel={onRegisterCancel}
+            onValidityChange={onValidityChange}
           />
         </>
       )}
