@@ -33,7 +33,7 @@ import { I18nProvider } from "@openworkflowspec/i18n";
 import { en } from "../../../../src/i18n/locales/en";
 import { KeyValueMapField } from "../../../../src/side-panel/forms/customFields/KeyValueMapField";
 import { TaskFormContext } from "../../../../src/side-panel/forms/taskFormContext";
-import type { MapField } from "../../../../src/side-panel/forms/schemaToFormFields";
+import type { MapField } from "../../../../src/core/schemaToFormFields";
 
 // ---------------------------------------------------------------------------
 // Helpers

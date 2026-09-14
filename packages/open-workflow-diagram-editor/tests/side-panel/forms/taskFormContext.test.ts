@@ -20,7 +20,7 @@ import {
   hasValue,
   filterReadOnlyFields,
 } from "../../../src/side-panel/forms/taskFormContext";
-import type { FormFieldDescriptor } from "../../../src/side-panel/forms/schemaToFormFields";
+import type { FormFieldDescriptor } from "../../../src/core/schemaToFormFields";
 import { SET_EXAMPLE_WORKFLOW } from "../../fixtures/workflows";
 
 // ---------------------------------------------------------------------------
