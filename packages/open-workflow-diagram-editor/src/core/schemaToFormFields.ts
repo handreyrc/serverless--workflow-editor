@@ -35,6 +35,7 @@ export type FormFieldDescriptor =
   | ChildTaskListField
   | ObjectField
   | MapField
+  | JsonField
   | OneOfField;
 
 interface FieldBase {
@@ -121,6 +122,25 @@ export interface ObjectField extends FieldBase {
  */
 export interface MapField extends FieldBase {
   kind: "map";
+}
+
+/**
+ * An unconstrained structured-value field (empty schema `{}`).
+ *
+ * An empty schema accepts any JSON/YAML value — object, array, number,
+ * boolean, string, or null. Rendering it as a `MapField` would silently drop
+ * non-object values (arrays, scalars) because they never match the map
+ * predicate.
+ *
+ * Rendered by `StructuredValueField`. `format` controls serialisation:
+ * - `"yaml"` — displayed as YAML, parsed with js-yaml (YAML-first default)
+ * - `"json"` — displayed as pretty-printed JSON, parsed with JSON.parse
+ *
+ * The stored value is always the parsed data, never a raw string.
+ */
+export interface JsonField extends FieldBase {
+  kind: "json";
+  format: "json" | "yaml";
 }
 
 /**
@@ -323,12 +343,13 @@ export function schemaToFormFields(
   defs?: Record<string, unknown>,
   requiredSet?: Set<string>,
   path = "",
+  format: "json" | "yaml" = "yaml",
 ): FormFieldDescriptor[] {
   const fields: FormFieldDescriptor[] = [];
 
   // Tasks like callTask have a top-level `oneOf` with no own `properties`.
   if (Array.isArray(schema.oneOf) && !schema.properties) {
-    const variants = buildOneOfVariants(schema.oneOf as unknown[], defs, path);
+    const variants = buildOneOfVariants(schema.oneOf as unknown[], defs, path, format);
     if (variants.length > 1) {
       fields.push({
         kind: "one-of",
@@ -400,7 +421,7 @@ export function schemaToFormFields(
     // ── oneOf / anyOf at property level ────────────────────────────────────
     const candidates = (resolved.oneOf ?? resolved.anyOf) as unknown[] | undefined;
     if (Array.isArray(candidates)) {
-      const variants = buildOneOfVariants(candidates, localDefs, fieldPath);
+      const variants = buildOneOfVariants(candidates, localDefs, fieldPath, format);
       if (variants.length > 1) {
         fields.push({
           kind: "one-of",
@@ -454,6 +475,7 @@ export function schemaToFormFields(
         localDefs,
         childRequired,
         fieldPath,
+        format,
       );
       // Transparent-wrapper elimination: if this object is a loose container
       // (additionalProperties: true) with exactly one child that is itself an object
@@ -579,11 +601,7 @@ export function schemaToFormFields(
  * 4. Object type (no const discriminator) → data must be a non-array object.
  * 5. Fallback → always returns false (last variant wins at the call site).
  */
-function buildDiscriminator(
-  resolved: Record<string, unknown>,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _defs: Record<string, unknown> | undefined,
-): (data: unknown) => boolean {
+function buildDiscriminator(resolved: Record<string, unknown>): (data: unknown) => boolean {
   const properties = resolved.properties as Record<string, unknown> | undefined;
 
   // Strategy 1: property with `const`
@@ -610,9 +628,29 @@ function buildDiscriminator(
     }
   }
 
-  // Strategy 3: scalar type
-  if (resolved.type === "string" || Array.isArray(resolved.anyOf)) {
+  // Strategy 3: pattern-refined string discriminator.
+  //
+  // Both `runtimeExpression` and `uriTemplate` resolve to string-typed schemas,
+  // so a naive `typeof data === "string"` predicate would always match the first
+  // variant in the list (URI) — even when the stored value is `${...}`.
+  //
+  // When the resolved schema carries a `pattern` that matches the runtime-
+  // expression syntax, use it directly so Expression beats URI.
+  // When the resolved schema has no `pattern` of its own but is an `anyOf` of
+  // strings (i.e. uriTemplate), discriminate as "any string that is NOT an
+  // expression" — the complement keeps the two variants mutually exclusive.
+  if (typeof resolved.pattern === "string") {
+    // Exact-match: use the schema's own pattern as the discriminator.
+    const rx = new RegExp(resolved.pattern);
+    return (data: unknown) => typeof data === "string" && rx.test(data);
+  }
+  if (resolved.type === "string") {
     return (data: unknown) => typeof data === "string";
+  }
+  if (Array.isArray(resolved.anyOf)) {
+    // anyOf string schema (e.g. uriTemplate) — matches any string that is NOT
+    // a runtime expression, so expression values are never claimed by this branch.
+    return (data: unknown) => typeof data === "string" && !RUNTIME_EXPRESSION_PATTERN.test(data);
   }
   if (resolved.type === "number" || resolved.type === "integer") {
     return (data: unknown) => typeof data === "number";
@@ -634,7 +672,7 @@ function buildDiscriminator(
 
 /** Intermediate representation for a resolved oneOf/anyOf candidate before collapsing. */
 type ResolvedVariant = {
-  kind: "string" | "number" | "boolean" | "enum" | "map" | "object";
+  kind: "string" | "number" | "boolean" | "enum" | "map" | "json" | "object";
   label: string;
   matchesData: (data: unknown) => boolean;
   fields: FormFieldDescriptor[];
@@ -646,6 +684,7 @@ function buildOneOfVariants(
   candidates: unknown[],
   defs: Record<string, unknown> | undefined,
   parentPath: string,
+  format: "json" | "yaml" = "yaml",
 ): OneOfVariant[] {
   const leafPath = parentPath || "__leaf__";
 
@@ -670,28 +709,52 @@ function buildOneOfVariants(
             : undefined;
 
     const rawLabel = titleCandidate ? formatVariantLabel(titleCandidate) : `Option ${idx + 1}`;
-    const matchesData = buildDiscriminator(resolved, defs);
+    const matchesData = buildDiscriminator(resolved);
 
     // Variants with no fixed properties and no nested oneOf are either maps or scalars.
     if (!resolved.properties && !Array.isArray(resolved.oneOf)) {
-      // ── Truly-empty schema {} — treat as open key-value map ──────────────
-      // An empty schema (no structural keywords beyond title/description) is an
-      // unconstrained value. Treat it as a map variant so it renders as a
-      // key-value editor rather than a plain string input.
+      // ── Truly-empty schema {} — treat as unconstrained JSON value ─────────
+      // An empty schema (no structural keywords beyond title/description)
+      // accepts ANY JSON value: object, array, number, boolean, string, null.
+      // A MapField would silently make non-object values unrenderable because
+      // they match neither the map predicate nor the expression branch and then
+      // appear as an empty string field. Use JsonField instead so the editor
+      // always preserves the actual stored value regardless of its type.
+      //
+      // Always serialise as YAML — js-yaml's `load` is a superset of JSON so
+      // pasting JSON into the textarea also works without any extra UI choice.
+      // The label is left as `rawLabel` so the single-variant unwrap path in
+      // `schemaToFormFields` can replace it with the parent property's label.
       const isEmptySchema = Object.keys(resolved).every((k) => SCHEMA_META_KEYS.has(k));
       if (isEmptySchema) {
-        const mapField: MapField = {
-          kind: "map",
+        // Use the schema title when available, otherwise derive from the last
+        // segment of the parent path (e.g. "emit.event.with.data" → "data"),
+        // capitalised. Generic fallback labels like "Option N" are replaced.
+        const isFallbackLabel = /^Option \d+$/.test(rawLabel);
+        const pathSegment = parentPath.split(".").pop() ?? "";
+        const valueLabel = isFallbackLabel
+          ? pathSegment
+            ? pathSegment.charAt(0).toUpperCase() + pathSegment.slice(1)
+            : "Value"
+          : rawLabel;
+        const jsonField: JsonField = {
+          kind: "json",
+          format,
           path: leafPath,
-          label: "key-value",
+          label: valueLabel,
           required: false,
         };
         return [
           {
-            kind: "map" as const,
-            label: "key-value",
-            matchesData: (d) => isPlainObject(d) && !Array.isArray(d),
-            fields: [mapField],
+            kind: "json" as const,
+            label: valueLabel,
+            // Match any non-string value, including undefined and null.
+            // This ensures that when the field is absent from the task (undefined),
+            // the discriminator selects the Data variant rather than falling
+            // through to the Expression variant (which returns false for undefined).
+            // The Expression matchesData only returns true for actual ${...} strings.
+            matchesData: (d) => typeof d !== "string",
+            fields: [jsonField],
             resolved,
             c,
           },
@@ -792,7 +855,13 @@ function buildOneOfVariants(
     const req = new Set<string>(
       Array.isArray(resolved.required) ? (resolved.required as string[]) : [],
     );
-    const children = schemaToFormFields(resolved as DereferencedSchema, defs, req, parentPath);
+    const children = schemaToFormFields(
+      resolved as DereferencedSchema,
+      defs,
+      req,
+      parentPath,
+      format,
+    );
 
     return [
       { kind: "object" as const, label: rawLabel, matchesData, fields: children, resolved, c },
@@ -830,6 +899,13 @@ function buildOneOfVariants(
         (typeof item.c.$ref === "string" && item.c.$ref.includes("uriTemplate")) ||
         item.resolved.title === "UriTemplate";
 
+      // Carry isRuntimeExpression / placeholder from the first-pass StringField
+      // so that e.g. the runtimeExpression variant of `data` (anyOf: [RE, {}])
+      // keeps its ${...} placeholder when it is merged in the collapse loop.
+      const firstPassField = item.fields[0] as StringField | undefined;
+      const isRe = firstPassField?.isRuntimeExpression ?? false;
+      const inheritedPlaceholder = firstPassField?.placeholder;
+
       const preferredLabel = isUriContext
         ? "URI"
         : item.label === "Option 1" || item.label === "Option 2"
@@ -843,8 +919,12 @@ function buildOneOfVariants(
           label: preferredLabel,
           required: false,
           multiline: false,
-          isRuntimeExpression: false,
-          ...(isUriContext ? { placeholder: "https://example.com/api/{id}" } : {}),
+          isRuntimeExpression: isRe,
+          ...(isUriContext
+            ? { placeholder: "https://example.com/api/{id}" }
+            : inheritedPlaceholder !== undefined
+              ? { placeholder: inheritedPlaceholder }
+              : {}),
         };
         mergedStringVariant = {
           label: preferredLabel,
@@ -853,10 +933,12 @@ function buildOneOfVariants(
         };
       } else {
         mergedStringVariant.matchPredicates.push(item.matchesData);
+        const merged = mergedStringVariant.fields[0] as StringField;
         if (isUriContext) {
           mergedStringVariant.label = "URI";
-          (mergedStringVariant.fields[0] as StringField).placeholder =
-            "https://example.com/api/{id}";
+          merged.placeholder = "https://example.com/api/{id}";
+        } else if (isRe && merged.placeholder === undefined && inheritedPlaceholder !== undefined) {
+          merged.placeholder = inheritedPlaceholder;
         }
       }
     } else {
@@ -865,7 +947,7 @@ function buildOneOfVariants(
         collapsed.push({
           label: mergedStringVariant.label,
           fields: mergedStringVariant.fields,
-          matchesData: (data: unknown) => typeof data === "string" || preds.some((p) => p(data)),
+          matchesData: buildStringMatchesData(preds),
         });
         mergedStringVariant = null;
       }
@@ -882,9 +964,23 @@ function buildOneOfVariants(
     collapsed.push({
       label: mergedStringVariant.label,
       fields: mergedStringVariant.fields,
-      matchesData: (data: unknown) => typeof data === "string" || preds.some((p) => p(data)),
+      matchesData: buildStringMatchesData(preds),
     });
   }
 
   return collapsed;
+}
+
+/**
+ * Builds the `matchesData` predicate for a collapsed/merged string variant.
+ *
+ * Each pred was produced by `buildDiscriminator` for the individual string
+ * candidates. Now that Strategy 3 uses pattern-refined discriminators (e.g.
+ * `runtimeExpression` only matches `${...}` strings), the merged predicate
+ * must NOT short-circuit with a blanket `typeof data === "string"` — that
+ * would cause any string (including plain URIs) to match the Expression variant.
+ * Delegating entirely to the preds keeps each merged variant exclusive.
+ */
+function buildStringMatchesData(preds: ((data: unknown) => boolean)[]): (data: unknown) => boolean {
+  return (data: unknown) => preds.some((p) => p(data));
 }

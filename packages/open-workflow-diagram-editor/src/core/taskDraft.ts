@@ -75,6 +75,19 @@ export function applyDirtyValues(
   original: Record<string, unknown>,
   allValues: Record<string, unknown>,
   dirtyPaths: Set<string>,
+  /**
+   * Paths that are dirty solely because the variant selector (sentinel) changed.
+   * These represent "the user switched away from the original variant" and must
+   * always delete the corresponding model property — UNLESS the same path (or a
+   * leaf under it) is also independently dirty in `dirtyPaths` (meaning the user
+   * edited the field after switching back).
+   *
+   * Unlike regular dirty paths, sentinel paths cannot rely on `allValues` to
+   * determine the correct action: `getValues()` falls back to `_defaultValues`
+   * for unset paths, so `allValues` may contain stale default-value leaf keys
+   * that should NOT prevent deletion.
+   */
+  sentinelPaths: Set<string> = new Set(),
 ): Record<string, unknown> {
   // Deep clone the original so we never mutate the store value.
   const result = deepClone(original);
@@ -88,6 +101,19 @@ export function applyDirtyValues(
       deletePath(result, dotPath.split("."));
     } else {
       setPath(result, dotPath.split("."), value);
+    }
+  }
+
+  // For sentinel-derived paths: delete from the model unless the same path (or
+  // a leaf under it) is independently dirty in dirtyPaths — which means the
+  // user actually edited the field after switching back to it.
+  for (const sentinelPath of sentinelPaths) {
+    const prefix = sentinelPath + ".";
+    const independentlyDirty =
+      dirtyPaths.has(sentinelPath) ||
+      [...dirtyPaths].some((p) => p === sentinelPath || p.startsWith(prefix));
+    if (!independentlyDirty) {
+      deletePath(result, sentinelPath.split("."));
     }
   }
 
@@ -115,7 +141,15 @@ function deepClone<T>(value: T): T {
 function isDirtyPath(dotPath: string, dirtyPaths: Set<string>): boolean {
   if (dirtyPaths.has(dotPath)) return true;
   for (const dirty of dirtyPaths) {
+    // Case 1: dotPath is a leaf under a dirty parent (map field — dirty prefix
+    // is shorter). e.g. dirty="with" matches dotPath="with.method".
     if (dotPath.startsWith(dirty + ".")) return true;
+    // Case 2: a dirty leaf is nested under dotPath (structured-value field —
+    // the stored value was an object so RHF expanded it into leaf dirty paths,
+    // but the form value was replaced with a scalar "" at the parent path).
+    // e.g. dirty="emit.event.with.data.client.firstName" matches
+    // dotPath="emit.event.with.data".
+    if (dirty.startsWith(dotPath + ".")) return true;
   }
   return false;
 }

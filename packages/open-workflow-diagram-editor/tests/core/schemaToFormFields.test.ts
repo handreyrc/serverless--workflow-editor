@@ -20,7 +20,7 @@ import type {
   OneOfField,
   StringField,
   ObjectField,
-  MapField,
+  JsonField,
 } from "../../src/core/schemaToFormFields";
 
 describe("schemaToFormFields endpoint and oneOf unwrapping", () => {
@@ -73,8 +73,8 @@ describe("schemaToFormFields emitTask event.with field variants", () => {
   /** Navigate to the emit.event.with object inside emitTask fields.
    * The `emit.event` wrapper is transparent (single-child object) and is hoisted away,
    * so `emit.with` is a direct child of `emit`. */
-  function getWithChildren() {
-    const fields = getFormFieldsForNodeType("emit");
+  function getWithChildren(format: "json" | "yaml" = "yaml") {
+    const fields = getFormFieldsForNodeType("emit", format);
     const emitField = fields.find((f) => f.path === "emit") as ObjectField | undefined;
     // emit.event is hoisted: emit's children contain emit.event.with directly
     const withField = emitField?.children.find((f) => f.path === "emit.event.with") as
@@ -106,7 +106,7 @@ describe("schemaToFormFields emitTask event.with field variants", () => {
     expect(leafField?.placeholder).toBe("https://example.com/api/{id}");
   });
 
-  it("`source` Expression variant is a runtime-expression string", () => {
+  it("`source` Expression variant is a runtime-expression string with ${...} placeholder", () => {
     const withChildren = getWithChildren();
     const sourceField = withChildren.find((f) => f.path === "emit.event.with.source") as
       | OneOfField
@@ -115,6 +115,22 @@ describe("schemaToFormFields emitTask event.with field variants", () => {
     const leafField = exprVariant?.fields[0] as StringField | undefined;
     expect(leafField?.kind).toBe("string");
     expect(leafField?.isRuntimeExpression).toBe(true);
+    expect(leafField?.placeholder).toBe("${...}");
+  });
+
+  it("`source` URI variant matches a URI string; Expression variant matches a ${...} string", () => {
+    const withChildren = getWithChildren();
+    const sourceField = withChildren.find((f) => f.path === "emit.event.with.source") as
+      | OneOfField
+      | undefined;
+    const uriVariant = sourceField?.variants.find((v) => v.label === "URI");
+    const exprVariant = sourceField?.variants.find((v) => v.label === "Expression");
+    // URI wins for plain URIs
+    expect(uriVariant?.matchesData("https://example.com/source")).toBe(true);
+    expect(exprVariant?.matchesData("https://example.com/source")).toBe(false);
+    // Expression wins for ${...} strings
+    expect(exprVariant?.matchesData("${.source}")).toBe(true);
+    expect(uriVariant?.matchesData("${.source}")).toBe(false);
   });
 
   it("`time` emits a one-of with Literal Time and Expression variants", () => {
@@ -139,38 +155,91 @@ describe("schemaToFormFields emitTask event.with field variants", () => {
     expect(labels).toContain("Expression");
   });
 
-  it("`data` emits a one-of with Expression and key-value Object variants", () => {
+  it("`dataschema` URI variant matches a URI string; Expression variant matches a ${...} string", () => {
+    const withChildren = getWithChildren();
+    const dataschemaField = withChildren.find((f) => f.path === "emit.event.with.dataschema") as
+      | OneOfField
+      | undefined;
+    const uriVariant = dataschemaField?.variants.find((v) => v.label === "URI");
+    const exprVariant = dataschemaField?.variants.find((v) => v.label === "Expression");
+    // URI wins for plain URIs
+    expect(uriVariant?.matchesData("https://schema.example.com/v1")).toBe(true);
+    expect(exprVariant?.matchesData("https://schema.example.com/v1")).toBe(false);
+    // Expression wins for ${...} strings
+    expect(exprVariant?.matchesData("${.dataschema}")).toBe(true);
+    expect(uriVariant?.matchesData("${.dataschema}")).toBe(false);
+  });
+
+  it("`data` emits a one-of with Data and Expression variants", () => {
     const withChildren = getWithChildren();
     const dataField = withChildren.find((f) => f.path === "emit.event.with.data") as
       | OneOfField
       | undefined;
     expect(dataField?.kind).toBe("one-of");
     const labels = dataField?.variants.map((v) => v.label);
+    expect(labels).toContain("Data");
     expect(labels).toContain("Expression");
-    // The {} unconstrained variant should render as a map (key-value editor)
-    const mapVariant = dataField?.variants.find((v) => v.fields.some((f) => f.kind === "map"));
-    expect(mapVariant).toBeDefined();
+    // No separate YAML / JSON picker — the textarea always uses YAML serialisation
+    // and accepts JSON input because js-yaml's load() is a superset of JSON.
+    expect(labels).not.toContain("YAML");
+    expect(labels).not.toContain("JSON");
   });
 
-  it("`data` map variant field carries label 'key-value'", () => {
+  it("`data` Data variant carries format 'yaml' when workflow format is yaml (default)", () => {
+    const withChildren = getWithChildren("yaml");
+    const dataField = withChildren.find((f) => f.path === "emit.event.with.data") as
+      | OneOfField
+      | undefined;
+    const dataVariant = dataField?.variants.find((v) => v.label === "Data");
+    const jsonField = dataVariant?.fields.find((f) => f.kind === "json") as JsonField | undefined;
+    expect(jsonField?.format).toBe("yaml");
+  });
+
+  it("`data` Data variant carries format 'json' when workflow format is json", () => {
+    const withChildren = getWithChildren("json");
+    const dataField = withChildren.find((f) => f.path === "emit.event.with.data") as
+      | OneOfField
+      | undefined;
+    const dataVariant = dataField?.variants.find((v) => v.label === "Data");
+    const jsonField = dataVariant?.fields.find((f) => f.kind === "json") as JsonField | undefined;
+    expect(jsonField?.format).toBe("json");
+  });
+
+  it("`data` Expression variant carries isRuntimeExpression:true and the ${...} placeholder", () => {
     const withChildren = getWithChildren();
     const dataField = withChildren.find((f) => f.path === "emit.event.with.data") as
       | OneOfField
       | undefined;
-    const mapVariant = dataField?.variants.find((v) => v.fields.some((f) => f.kind === "map"));
-    const mapField = mapVariant?.fields.find((f) => f.kind === "map") as MapField | undefined;
-    expect(mapField?.label).toBe("key-value");
+    const exprVariant = dataField?.variants.find((v) => v.label === "Expression");
+    const stringField = exprVariant?.fields.find((f) => f.kind === "string") as
+      | StringField
+      | undefined;
+    expect(stringField?.isRuntimeExpression).toBe(true);
+    expect(stringField?.placeholder).toBe("${...}");
   });
 
-  it("`data` map variant matchesData returns true for plain objects and false for strings", () => {
+  it("`data` Data variant auto-selects for structured values and absent data; Expression variant auto-selects for ${...} strings", () => {
     const withChildren = getWithChildren();
     const dataField = withChildren.find((f) => f.path === "emit.event.with.data") as
       | OneOfField
       | undefined;
-    const mapVariant = dataField?.variants.find((v) => v.fields.some((f) => f.kind === "map"));
-    expect(mapVariant?.matchesData({ key: "val" })).toBe(true);
-    expect(mapVariant?.matchesData("expression")).toBe(false);
-    expect(mapVariant?.matchesData([])).toBe(false);
+    const dataVariant = dataField?.variants.find((v) => v.label === "Data");
+    const exprVariant = dataField?.variants.find((v) => v.label === "Expression");
+    // Data matches any non-string value — including absent (undefined/null)
+    expect(dataVariant?.matchesData({ key: "val" })).toBe(true);
+    expect(dataVariant?.matchesData([])).toBe(true);
+    expect(dataVariant?.matchesData(42)).toBe(true);
+    expect(dataVariant?.matchesData(false)).toBe(true);
+    expect(dataVariant?.matchesData(null)).toBe(true);
+    // undefined (absent field) → Data, so re-opening a task with no data defaults to Data
+    expect(dataVariant?.matchesData(undefined)).toBe(true);
+    // Expression only matches ${...} strings; plain strings and undefined go to Data
+    expect(exprVariant?.matchesData("${.payload}")).toBe(true);
+    expect(exprVariant?.matchesData("plain string")).toBe(false);
+    expect(exprVariant?.matchesData(undefined)).toBe(false);
+    // Data does NOT match strings
+    expect(dataVariant?.matchesData("expression")).toBe(false);
+    expect(dataVariant?.matchesData("${.payload}")).toBe(false);
   });
 });
 
