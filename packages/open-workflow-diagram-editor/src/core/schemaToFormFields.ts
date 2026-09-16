@@ -151,6 +151,12 @@ export interface OneOfVariant {
 
 const RUNTIME_EXPRESSION_PATTERN = /^\s*\$\{.+\}\s*$/;
 
+/** JSON Schema primitive type names that are too generic to use as variant labels. */
+const GENERIC_TYPE_LABELS = new Set(["string", "object", "number", "integer", "boolean", "array"]);
+
+/** Schema keys that are purely descriptive and carry no structural meaning. */
+const SCHEMA_META_KEYS = new Set(["title", "description", "$comment", "examples"]);
+
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
@@ -269,11 +275,16 @@ function formatVariantLabel(title: string): string {
     title === "UriTemplate" ||
     title === "LiteralEndpointURI" ||
     title === "LiteralUriTemplate" ||
-    title === "LiteralUri"
+    title === "LiteralUri" ||
+    title === "LiteralDataSchema"
   ) {
     return "URI";
   }
-  if (title === "RuntimeExpression" || title === "ExpressionEndpointURI") {
+  if (
+    title === "RuntimeExpression" ||
+    title === "ExpressionEndpointURI" ||
+    title === "ExpressionDataSchema"
+  ) {
     return "Expression";
   }
   // Split camelCase into words (e.g. "EndpointConfiguration" -> "Endpoint Configuration")
@@ -444,6 +455,16 @@ export function schemaToFormFields(
         childRequired,
         fieldPath,
       );
+      // Transparent-wrapper elimination: if this object is a loose container
+      // (additionalProperties: true) with exactly one child that is itself an object
+      // group, skip the intermediate wrapper and push the sole child directly.
+      // This removes noise groups like `emit.event` (which contains only `emit.event.with`)
+      // while preserving strict structural wrappers (unevaluatedProperties: false).
+      const onlyChild = children.length === 1 ? children[0] : undefined;
+      if (onlyChild?.kind === "object" && resolved.additionalProperties === true) {
+        fields.push(onlyChild);
+        continue;
+      }
       fields.push({
         kind: "object",
         path: fieldPath,
@@ -626,6 +647,8 @@ function buildOneOfVariants(
   defs: Record<string, unknown> | undefined,
   parentPath: string,
 ): OneOfVariant[] {
+  const leafPath = parentPath || "__leaf__";
+
   // First pass: resolve candidate refs and build raw variant list
   const resolvedList = candidates.flatMap((candidate, idx): ResolvedVariant[] => {
     if (!isPlainObject(candidate)) return [];
@@ -651,22 +674,38 @@ function buildOneOfVariants(
 
     // Variants with no fixed properties and no nested oneOf are either maps or scalars.
     if (!resolved.properties && !Array.isArray(resolved.oneOf)) {
+      // ── Truly-empty schema {} — treat as open key-value map ──────────────
+      // An empty schema (no structural keywords beyond title/description) is an
+      // unconstrained value. Treat it as a map variant so it renders as a
+      // key-value editor rather than a plain string input.
+      const isEmptySchema = Object.keys(resolved).every((k) => SCHEMA_META_KEYS.has(k));
+      if (isEmptySchema) {
+        const mapField: MapField = {
+          kind: "map",
+          path: leafPath,
+          label: "key-value",
+          required: false,
+        };
+        return [
+          {
+            kind: "map" as const,
+            label: "key-value",
+            matchesData: (d) => isPlainObject(d) && !Array.isArray(d),
+            fields: [mapField],
+            resolved,
+            c,
+          },
+        ];
+      }
+
       // ── Key-value map variant ────────────────────────────────────────────
       if (isMapSchema(resolved)) {
-        const GENERIC_TYPE_LABELS = new Set([
-          "string",
-          "object",
-          "number",
-          "integer",
-          "boolean",
-          "array",
-        ]);
         const isGenericTypeLabel = GENERIC_TYPE_LABELS.has(titleCandidate ?? "");
         const label =
           titleCandidate && !isGenericTypeLabel ? formatVariantLabel(titleCandidate) : "key-value";
         const mapField: MapField = {
           kind: "map",
-          path: parentPath || "__leaf__",
+          path: leafPath,
           label,
           required: false,
         };
@@ -674,7 +713,6 @@ function buildOneOfVariants(
       }
 
       // ── Pure scalar variants ─────────────────────────────────────────────
-      const leafPath = parentPath || "__leaf__";
       let leafField: FormFieldDescriptor;
 
       if (resolved.type === "string" && Array.isArray(resolved.enum)) {
@@ -719,7 +757,10 @@ function buildOneOfVariants(
           resolved.title === "UriTemplate" ||
           parentPath.toLowerCase().endsWith("endpoint") ||
           parentPath.toLowerCase().endsWith("uri");
-        const isRe = RUNTIME_EXPRESSION_PATTERN.test(String(resolved.pattern ?? ""));
+        const isRe =
+          (typeof c.$ref === "string" && c.$ref.includes("runtimeExpression")) ||
+          resolved.title === "RuntimeExpression" ||
+          RUNTIME_EXPRESSION_PATTERN.test(String(resolved.pattern ?? ""));
         const placeholder = isUriOrTemplate
           ? "https://example.com/api/{id}"
           : isRe
@@ -760,6 +801,20 @@ function buildOneOfVariants(
 
   // Second pass: collapse consecutive plain string variants (e.g. RuntimeExpression + UriTemplate)
   // into a single "URI" or "string" variant with URI template placeholder support.
+  //
+  // Exception: when ALL resolved variants are strings (no object/map variants exist), preserve
+  // each variant individually so that semantically distinct modes (e.g. URI Template vs
+  // RuntimeExpression for `source`, `dataschema`, `time`) are surfaced as separate selectable
+  // options in the form rather than collapsed to a single anonymous string input.
+  const allStrings = resolvedList.every((item) => item.kind === "string");
+  if (allStrings && resolvedList.length > 1) {
+    return resolvedList.map((item) => ({
+      label: item.label,
+      fields: item.fields,
+      matchesData: item.matchesData,
+    }));
+  }
+
   const collapsed: OneOfVariant[] = [];
   let mergedStringVariant: {
     label: string;
