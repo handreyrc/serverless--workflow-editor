@@ -34,6 +34,16 @@ import type { Specification } from "@openworkflowspec/sdk";
 /* How long the applied message stays in footer */
 const APPLIED_MESSAGE_MS = 2400;
 
+type InternalFormControl = {
+  _formState?: {
+    dirtyFields?: Record<string, unknown>;
+  };
+};
+
+function getInternalDirtyFields(control: unknown): Record<string, unknown> {
+  return (control as InternalFormControl)._formState?.dirtyFields ?? {};
+}
+
 type DraftStatusProps = {
   changedCount: number;
   isDirty: boolean;
@@ -87,10 +97,9 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
     return null;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const changedCount = Object.keys(
-    flattenTask((form.control as any)._formState.dirtyFields ?? {}),
-  ).filter((p) => !p.startsWith("__oneof__.")).length;
+  const changedCount = Object.keys(flattenTask(getInternalDirtyFields(form.control))).filter(
+    (p) => !p.startsWith("__oneof__."),
+  ).length;
 
   const handleCancel = () => {
     const nodeType = node.type ?? "";
@@ -115,10 +124,7 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
     // from useFormState only populates fields accessed via the proxy, but the
     // sentinel fields registered via register() (not Controller) only appear
     // in the internal _formState and not in the proxy-gated public surface.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rawFlatDirty = Object.keys(
-      flattenTask((form.control as any)._formState.dirtyFields ?? {}),
-    );
+    const rawFlatDirty = Object.keys(flattenTask(getInternalDirtyFields(form.control)));
     const flatDirty = new Set<string>();
     // Sentinel paths: dirty solely because the variant selector changed.
     // Kept separate so applyDirtyValues can handle them correctly — they always

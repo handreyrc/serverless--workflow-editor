@@ -23,7 +23,7 @@ import { useTaskFormContext, getNestedValue } from "../taskFormContext";
 import { useFieldError, FieldWithError } from "./fieldHelpers";
 
 // ---------------------------------------------------------------------------
-// StructuredValueField — textarea that stores an arbitrary parsed value (YAML/JSON)
+// StructuredValueField — textarea that stores an arbitrary parsed value
 //
 // The field stores the *parsed* value (object, array, number, boolean, null)
 // in react-hook-form, not a raw string. `field.format` controls how the
