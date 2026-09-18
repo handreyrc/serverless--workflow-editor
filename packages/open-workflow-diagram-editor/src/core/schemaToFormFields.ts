@@ -139,6 +139,18 @@ const GENERIC_TYPE_LABELS = new Set(["string", "object", "number", "integer", "b
 /** Schema keys that are purely descriptive and carry no structural meaning. */
 const SCHEMA_META_KEYS = new Set(["title", "description", "$comment", "examples"]);
 
+/* Returns true when a oneOf/anyOf candidate is the runtime expression schema */
+function isRuntimeExpressionSchema(
+  candidate: Record<string, unknown>,
+  resolved: Record<string, unknown>,
+): boolean {
+  return (
+    (typeof candidate.$ref === "string" && candidate.$ref.includes("runtimeExpression")) ||
+    resolved.title === "RuntimeExpression" ||
+    RUNTIME_EXPRESSION_PATTERN.test(String(resolved.pattern ?? ""))
+  );
+}
+
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
@@ -505,7 +517,7 @@ export function schemaToFormFields(
 
     // ── String ─────────────────────────────────────────────────────────────
     if (resolved.type === "string") {
-      const isRe = RUNTIME_EXPRESSION_PATTERN.test(String(resolved.pattern ?? ""));
+      const isRe = isRuntimeExpressionSchema(prop, resolved);
       // Multi-line heuristic: keys that conventionally hold large text blocks
       const multiline = key === "command" || key === "code" || key === "script";
       fields.push({
@@ -745,10 +757,7 @@ function buildOneOfVariants(
           resolved.title === "UriTemplate" ||
           parentPath.toLowerCase().endsWith("endpoint") ||
           parentPath.toLowerCase().endsWith("uri");
-        const isRe =
-          (typeof c.$ref === "string" && c.$ref.includes("runtimeExpression")) ||
-          resolved.title === "RuntimeExpression" ||
-          RUNTIME_EXPRESSION_PATTERN.test(String(resolved.pattern ?? ""));
+        const isRe = isRuntimeExpressionSchema(c, resolved);
         const placeholder = isUriOrTemplate
           ? "https://example.com/api/{id}"
           : isRe
@@ -792,6 +801,17 @@ function buildOneOfVariants(
       { kind: "object" as const, label: rawLabel, matchesData, fields: children, resolved, c },
     ];
   });
+
+  if (resolvedList.some((item) => isRuntimeExpressionSchema(item.c, item.resolved))) {
+    for (const item of resolvedList) {
+      if (item.kind !== "string" || isRuntimeExpressionSchema(item.c, item.resolved)) {
+        continue;
+      }
+      const matchLiteral = item.matchesData;
+      item.matchesData = (data: unknown) =>
+        matchLiteral(data) && !RUNTIME_EXPRESSION_PATTERN.test(String(data));
+    }
+  }
 
   // Second pass: collapse consecutive plain string variants (e.g. RuntimeExpression + UriTemplate)
   // into a single "URI" or "string" variant with URI template placeholder support.

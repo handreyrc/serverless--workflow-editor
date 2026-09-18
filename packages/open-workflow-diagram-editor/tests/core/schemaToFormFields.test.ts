@@ -144,6 +144,50 @@ describe("schemaToFormFields emitTask event.with field variants", () => {
     expect(labels).toContain("Expression");
   });
 
+  it("`time` Literal Time variant is a non-expression string field", () => {
+    const withChildren = getWithChildren();
+    const timeField = withChildren.find((f) => f.path === "emit.event.with.time") as
+      | OneOfField
+      | undefined;
+    const literalVariant = timeField?.variants.find((v) => v.label === "Literal Time");
+    const leafField = literalVariant?.fields[0] as StringField | undefined;
+    expect(leafField?.kind).toBe("string");
+    expect(leafField?.isRuntimeExpression).toBe(false);
+  });
+
+  it("`time` Expression variant is a runtime-expression string with ${...} placeholder", () => {
+    const withChildren = getWithChildren();
+    const timeField = withChildren.find((f) => f.path === "emit.event.with.time") as
+      | OneOfField
+      | undefined;
+    const exprVariant = timeField?.variants.find((v) => v.label === "Expression");
+    const leafField = exprVariant?.fields[0] as StringField | undefined;
+    expect(leafField?.kind).toBe("string");
+    expect(leafField?.isRuntimeExpression).toBe(true);
+    expect(leafField?.placeholder).toBe("${...}");
+  });
+
+  it("`time` Expression variant matches a ${...} string; Literal Time variant does NOT match a ${...} string", () => {
+    // Regression: before the fix, the Literal Time (non-expression) variant would claim
+    // "${$workflow.startedAt}" because its matchesData predicate only checked typeof === "string".
+    // After the fix, any non-expression string variant in a oneOf that also contains a
+    // RuntimeExpression candidate has its predicate tightened to exclude ${...} strings.
+    const withChildren = getWithChildren();
+    const timeField = withChildren.find((f) => f.path === "emit.event.with.time") as
+      | OneOfField
+      | undefined;
+    const literalVariant = timeField?.variants.find((v) => v.label === "Literal Time");
+    const exprVariant = timeField?.variants.find((v) => v.label === "Expression");
+
+    // A runtime-expression value must be claimed exclusively by Expression
+    expect(exprVariant?.matchesData("${$workflow.startedAt}")).toBe(true);
+    expect(literalVariant?.matchesData("${$workflow.startedAt}")).toBe(false);
+
+    // A plain literal time string must be claimed by Literal Time, not Expression
+    expect(literalVariant?.matchesData("2024-01-15T10:30:00Z")).toBe(true);
+    expect(exprVariant?.matchesData("2024-01-15T10:30:00Z")).toBe(false);
+  });
+
   it("`dataschema` emits a one-of with URI and Expression variants", () => {
     const withChildren = getWithChildren();
     const dataschemaField = withChildren.find((f) => f.path === "emit.event.with.dataschema") as
