@@ -34,15 +34,8 @@ import type { Specification } from "@openworkflowspec/sdk";
 /* How long the applied message stays in footer */
 const APPLIED_MESSAGE_MS = 2400;
 
-type InternalFormControl = {
-  _formState?: {
-    dirtyFields?: Record<string, unknown>;
-  };
-};
-
-function getInternalDirtyFields(control: unknown): Record<string, unknown> {
-  return (control as InternalFormControl)._formState?.dirtyFields ?? {};
-}
+const SENTINEL_KEY = "__oneof__";
+const SENTINEL_PREFIX = `${SENTINEL_KEY}.`;
 
 type DraftStatusProps = {
   changedCount: number;
@@ -88,7 +81,7 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
     [],
   );
 
-  const { isDirty } = useFormState({ control: form.control });
+  const { dirtyFields, isDirty } = useFormState({ control: form.control });
   const task = node.data.task;
   const showApplied = appliedNodeId === node.id;
 
@@ -97,8 +90,9 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
     return null;
   }
 
-  const changedCount = Object.keys(flattenTask(getInternalDirtyFields(form.control))).filter(
-    (p) => !p.startsWith("__oneof__."),
+  // Use the subscribed dirtyFields (public API) for the UI count
+  const changedCount = Object.keys(flattenTask(dirtyFields as Record<string, unknown>)).filter(
+    (p) => !p.startsWith(SENTINEL_PREFIX),
   ).length;
 
   const handleCancel = () => {
@@ -107,7 +101,7 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
     const sentinelDefaults = computeSentinelDefaults(allFields, task as Record<string, unknown>);
     form.reset({
       ...(task as Record<string, unknown>),
-      ...(Object.keys(sentinelDefaults).length > 0 ? { __oneof__: sentinelDefaults } : {}),
+      ...(Object.keys(sentinelDefaults).length > 0 ? { [SENTINEL_KEY]: sentinelDefaults } : {}),
     });
     setAppliedNodeId(null);
   };
@@ -118,21 +112,15 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
     // as nested paths internally). Flatten back to dot-notation so applyDirtyValues
     // can match keys against its dirtyPaths set correctly.
     const flatValues = flattenTask(form.getValues());
-    // dirtyFields is also nested: { timeout: { after: { hours: true } } }.
-    // Flatten it the same way to get leaf dot-notation paths.
-    // Use control._formState.dirtyFields directly: the subscribed `dirtyFields`
-    // from useFormState only populates fields accessed via the proxy, but the
-    // sentinel fields registered via register() (not Controller) only appear
-    // in the internal _formState and not in the proxy-gated public surface.
-    const rawFlatDirty = Object.keys(flattenTask(getInternalDirtyFields(form.control)));
+    const rawFlatDirty = Object.keys(flattenTask(dirtyFields));
     const flatDirty = new Set<string>();
     // Sentinel paths: dirty solely because the variant selector changed.
     // Kept separate so applyDirtyValues can handle them correctly — they always
     // delete the model property unless the field is also independently dirty.
     const sentinelPaths = new Set<string>();
     for (const path of rawFlatDirty) {
-      if (path.startsWith("__oneof__.")) {
-        sentinelPaths.add(path.slice("__oneof__.".length));
+      if (path.startsWith(SENTINEL_PREFIX)) {
+        sentinelPaths.add(path.slice(SENTINEL_PREFIX.length));
       } else {
         flatDirty.add(path);
       }
@@ -146,17 +134,13 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
     const updatedModel = updateTask(model, node.id, updated);
     commitWorkflow(updatedModel);
     // Reset to the committed task state (not form.getValues()) so that
-    // defaultValues reflect what was actually saved. form.getValues() falls
-    // back to _defaultValues for paths that were cleared with shouldDirty:false
-    // (e.g. the old variant's fields after a kind-boundary switch), causing
-    // stale values like the previous Expression string to reappear in
-    // StructuredValueField after apply.
+    // defaultValues reflect what was actually saved.
     const nodeType = node.type ?? "";
     const allFields = nodeType ? getFormFieldsForNodeType(nodeType) : [];
     const sentinelDefaults = computeSentinelDefaults(allFields, updated as Record<string, unknown>);
     form.reset({
       ...(updated as Record<string, unknown>),
-      ...(Object.keys(sentinelDefaults).length > 0 ? { __oneof__: sentinelDefaults } : {}),
+      ...(Object.keys(sentinelDefaults).length > 0 ? { [SENTINEL_KEY]: sentinelDefaults } : {}),
     });
     setAppliedNodeId(node.id);
 

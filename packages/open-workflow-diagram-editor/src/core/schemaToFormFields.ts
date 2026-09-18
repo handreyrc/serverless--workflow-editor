@@ -90,63 +90,26 @@ export interface ThenField extends FieldBase {
   kind: "then";
 }
 
-/**
- * A property that resolves to an array of tagged task entries.
- * Rendered as a read-only list of child-task names.
- *
- * Identified structurally: an array whose `items.additionalProperties.$ref`
- * points to the task union definition.
- */
+// Custom fields
+
 export interface ChildTaskListField extends FieldBase {
   kind: "child-task-list";
 }
 
-/**
- * A plain object with known sub-properties.
- * Rendered as a collapsible group that recurses into its children.
- */
 export interface ObjectField extends FieldBase {
   kind: "object";
   children: FormFieldDescriptor[];
 }
 
-/**
- * An open-ended key-value map (an object schema with `additionalProperties`
- * set and no fixed `properties` block).
- *
- * Identified structurally so it works with any conforming schema definition —
- * not just `setTask`. Examples: `set`, `with` (custom function call),
- * `headers`, `query`, `environment` in runTask scripts, etc.
- *
- * Rendered as a dynamic list of key/value rows with add and delete controls.
- */
 export interface MapField extends FieldBase {
   kind: "map";
 }
 
-/**
- * An unconstrained structured-value field (empty schema `{}`).
- *
- * An empty schema accepts any JSON/YAML value — object, array, number,
- * boolean, string, or null. Rendering it as a `MapField` would silently drop
- * non-object values (arrays, scalars) because they never match the map
- * predicate.
- *
- * Rendered by `StructuredValueField`. `format` controls serialisation:
- * - `"yaml"` — displayed as YAML, parsed with js-yaml (YAML-first default)
- * - `"json"` — displayed as pretty-printed JSON, parsed with JSON.parse
- *
- * The stored value is always the parsed data, never a raw string.
- */
 export interface JsonField extends FieldBase {
   kind: "json";
   format: "json" | "yaml";
 }
 
-/**
- * A field that can hold one of several variant types (oneOf / anyOf in the
- * schema). Each variant is a sub-schema with its own label and child fields.
- */
 export interface OneOfField extends FieldBase {
   kind: "one-of";
   variants: OneOfVariant[];
@@ -155,7 +118,6 @@ export interface OneOfField extends FieldBase {
 export interface OneOfVariant {
   /** Label for the variant (from schema `title`, or a generated fallback) */
   label: string;
-  /** The fields that belong to this variant */
   fields: FormFieldDescriptor[];
   /**
    * Discriminator predicate: given the actual task value at this field's path,
@@ -203,13 +165,10 @@ function resolveRef(
  */
 function isMapSchema(schema: Record<string, unknown>): boolean {
   if (schema.type !== "object" || !!schema.properties) return false;
-  // Explicit additionalProperties — covers schemas like set's object variant
-  // ({ type: "object", additionalProperties: true }).
+
   if (schema.additionalProperties !== undefined && schema.additionalProperties !== false)
     return true;
-  // Bare { type: "object" } with no structural constraints — treat as an open
-  // key-value map. This covers input.from / output.as / export.as which omit
-  // additionalProperties but are semantically identical open maps.
+  // Bare { type: "object" } with no structural constraints — treat as an open key-value map.
   if (schema.additionalProperties === undefined && !schema.oneOf && !schema.anyOf) return true;
   return false;
 }
@@ -217,8 +176,7 @@ function isMapSchema(schema: Record<string, unknown>): boolean {
 /**
  * Returns true if the schema node (or any `$ref` it resolves to) represents
  * a task-list — an array whose `items.additionalProperties.$ref` points to
- * the task union. Detection is purely structural; no definition name is
- * hardcoded beyond the conventional task-union ref pattern.
+ * the task union.
  */
 function isTaskListSchema(
   schema: Record<string, unknown>,
@@ -381,11 +339,6 @@ export function schemaToFormFields(
     const isRequired = req.has(key);
     const description = typeof prop.description === "string" ? prop.description : undefined;
 
-    // ── Special case: `then` key or flow-directive schema ─────────────────
-    // The `then` property is the canonical transition field and is always
-    // rendered as a sibling-task selector, regardless of its schema shape.
-    // Any other property whose schema structurally matches the flow-directive
-    // pattern (anyOf enum + plain string) is also treated as a `then` field.
     if (key === "then" || isFlowDirectiveSchema(prop, localDefs)) {
       fields.push({
         kind: "then",
@@ -477,11 +430,10 @@ export function schemaToFormFields(
         fieldPath,
         format,
       );
+
       // Transparent-wrapper elimination: if this object is a loose container
       // (additionalProperties: true) with exactly one child that is itself an object
       // group, skip the intermediate wrapper and push the sole child directly.
-      // This removes noise groups like `emit.event` (which contains only `emit.event.with`)
-      // while preserving strict structural wrappers (unevaluatedProperties: false).
       const onlyChild = children.length === 1 ? children[0] : undefined;
       if (onlyChild?.kind === "object" && resolved.additionalProperties === true) {
         fields.push(onlyChild);
@@ -569,8 +521,6 @@ export function schemaToFormFields(
     }
 
     // ── Fallback: treat as free-form string ────────────────────────────────
-    // Multi-line heuristic also applies here for untyped properties (e.g.
-    // SchemaInline.document has no explicit type in the schema).
     const fallbackMultiline = key === "document";
     fields.push({
       kind: "string",
@@ -629,16 +579,6 @@ function buildDiscriminator(resolved: Record<string, unknown>): (data: unknown) 
   }
 
   // Strategy 3: pattern-refined string discriminator.
-  //
-  // Both `runtimeExpression` and `uriTemplate` resolve to string-typed schemas,
-  // so a naive `typeof data === "string"` predicate would always match the first
-  // variant in the list (URI) — even when the stored value is `${...}`.
-  //
-  // When the resolved schema carries a `pattern` that matches the runtime-
-  // expression syntax, use it directly so Expression beats URI.
-  // When the resolved schema has no `pattern` of its own but is an `anyOf` of
-  // strings (i.e. uriTemplate), discriminate as "any string that is NOT an
-  // expression" — the complement keeps the two variants mutually exclusive.
   if (typeof resolved.pattern === "string") {
     // Exact-match: use the schema's own pattern as the discriminator.
     const rx = new RegExp(resolved.pattern);
@@ -714,17 +654,6 @@ function buildOneOfVariants(
     // Variants with no fixed properties and no nested oneOf are either maps or scalars.
     if (!resolved.properties && !Array.isArray(resolved.oneOf)) {
       // ── Truly-empty schema {} — treat as unconstrained JSON value ─────────
-      // An empty schema (no structural keywords beyond title/description)
-      // accepts ANY JSON value: object, array, number, boolean, string, null.
-      // A MapField would silently make non-object values unrenderable because
-      // they match neither the map predicate nor the expression branch and then
-      // appear as an empty string field. Use JsonField instead so the editor
-      // always preserves the actual stored value regardless of its type.
-      //
-      // Always serialise as YAML — js-yaml's `load` is a superset of JSON so
-      // pasting JSON into the textarea also works without any extra UI choice.
-      // The label is left as `rawLabel` so the single-variant unwrap path in
-      // `schemaToFormFields` can replace it with the parent property's label.
       const isEmptySchema = Object.keys(resolved).every((k) => SCHEMA_META_KEYS.has(k));
       if (isEmptySchema) {
         // Use the schema title when available, otherwise derive from the last
@@ -749,10 +678,6 @@ function buildOneOfVariants(
             kind: "json" as const,
             label: valueLabel,
             // Match any non-string value, including undefined and null.
-            // This ensures that when the field is absent from the task (undefined),
-            // the discriminator selects the Data variant rather than falling
-            // through to the Expression variant (which returns false for undefined).
-            // The Expression matchesData only returns true for actual ${...} strings.
             matchesData: (d) => typeof d !== "string",
             fields: [jsonField],
             resolved,
@@ -900,8 +825,6 @@ function buildOneOfVariants(
         item.resolved.title === "UriTemplate";
 
       // Carry isRuntimeExpression / placeholder from the first-pass StringField
-      // so that e.g. the runtimeExpression variant of `data` (anyOf: [RE, {}])
-      // keeps its ${...} placeholder when it is merged in the collapse loop.
       const firstPassField = item.fields[0] as StringField | undefined;
       const isRe = firstPassField?.isRuntimeExpression ?? false;
       const inheritedPlaceholder = firstPassField?.placeholder;
@@ -973,13 +896,6 @@ function buildOneOfVariants(
 
 /**
  * Builds the `matchesData` predicate for a collapsed/merged string variant.
- *
- * Each pred was produced by `buildDiscriminator` for the individual string
- * candidates. Now that Strategy 3 uses pattern-refined discriminators (e.g.
- * `runtimeExpression` only matches `${...}` strings), the merged predicate
- * must NOT short-circuit with a blanket `typeof data === "string"` — that
- * would cause any string (including plain URIs) to match the Expression variant.
- * Delegating entirely to the preds keeps each merged variant exclusive.
  */
 function buildStringMatchesData(preds: ((data: unknown) => boolean)[]): (data: unknown) => boolean {
   return (data: unknown) => preds.some((p) => p(data));

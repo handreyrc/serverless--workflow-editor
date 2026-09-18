@@ -24,29 +24,6 @@ import { useFieldError, FieldWithError } from "./fieldHelpers";
 
 // ---------------------------------------------------------------------------
 // StructuredValueField — textarea that stores an arbitrary parsed value
-//
-// The field stores the *parsed* value (object, array, number, boolean, null)
-// in react-hook-form, not a raw string. `field.format` controls how the
-// stored value is serialised for display and parsed on blur:
-//   "yaml" — display as YAML; parse with js-yaml (accepts YAML and JSON)
-//   "json" — display as pretty-printed JSON; parse with JSON.parse only
-// If parsing fails the raw text is stored as a plain string so the user
-// can keep editing without losing their work.
-//
-// State design
-// ────────────
-// The textarea owns its local `text` string independently of RHF's stored
-// value. Two external events must reset `text` to the current serialised
-// value:
-//   1. Task switch / cancel / apply — signalled by `defaultValues` identity
-//      change (form.reset() is called in all three cases).
-//   2. Format switch (YAML ↔ JSON) — signalled by `field.format` changing.
-//
-// Importantly, `rhfField.value` is NOT used as a reset signal because RHF
-// falls back to `_defaultValues` when `_formValues[name]` is `undefined`.
-// This means clearing the field (setting it to undefined) does not change
-// `rhfField.value` from the component's perspective — the ref comparison
-// would never detect the clear, causing a spurious text restore.
 // ---------------------------------------------------------------------------
 
 export type StructuredValueFieldProps = {
@@ -79,57 +56,29 @@ export function StructuredValueField({ field, id }: StructuredValueFieldProps) {
   const { isReadOnly } = useTaskFormContext();
   const errorMessage = useFieldError(field.path);
 
-  // Watch defaultValues identity: it changes on every form.reset() call,
-  // which covers task switch, cancel, and apply. This is the same strategy
-  // used by KeyValueMapField to detect external resets reliably.
+  // Watch defaultValues identity: it changes on every form.reset()
   const { defaultValues } = useFormState({ control });
 
-  // Local text state — authoritative display value, decoupled from RHF.
-  //
-  // On mount we determine the initial display based on live value + dirty state:
-  //   - getValues(path) returns the current _formValues entry. When the new
-  //     Controller mounts after a kind-boundary switch, it restores
-  //     _defaultValues into _formValues if the live value was undefined, so the
-  //     returned value may be the committed Expression string.
-  //   - getFieldState(path).isDirty is true when handleVariantChange or user
-  //     interaction explicitly called setValue with shouldDirty:true.
-  //
-  // Priority order:
-  //   1. live is a string AND NOT dirty → stale committed expression restored by
-  //      the Controller mount after an Expression→Data kind-boundary switch →
-  //      empty textarea (show the Data field blank, not the expression).
-  //   2. live is defined AND dirty → restored snapshot from a previous switch →
-  //      show the snapshot value (could be an object or even in-progress text).
-  //   3. live is undefined AND dirty → cleared without restore → empty textarea.
-  //   4. live is not a string AND not dirty → committed structured value → show it.
-  //   5. live is undefined AND not dirty → never set → fall back to defaultValues.
   const [text, setText] = React.useState(() => {
     const live = getValues(field.path as never) as unknown;
     const wasDirtied = getFieldState(field.path as never).isDirty;
 
-    // Case 1: stale expression string after Expression→Data kind-boundary switch.
-    // The Controller mount restores the expression from _defaultValues into
-    // _formValues — the field is NOT dirty since handleVariantChange used
-    // shouldDirty:false for the path clear. Show empty to reflect the blank
-    // Data textarea the user sees when they switch to the Data variant.
+    // Stale expression string after Expression→Data kind-boundary switch
     if (typeof live === "string" && !wasDirtied) {
       return "";
     }
 
-    // Cases 2 & 3: field was explicitly set (snapshot restore or cleared).
+    // Field was explicitly set (snapshot restore or cleared)
     if (wasDirtied) {
       return live !== undefined ? valueToText(live, field.format) : "";
     }
 
-    // Case 4: committed structured value (live was set by Controller mount from defaults).
+    // Committed structured value (live was set by Controller mount from defaults)
     if (live !== undefined) {
       return valueToText(live, field.format);
     }
 
-    // Case 5: fall back to defaultValues. If the default is a plain string in a
-    // json/yaml field it is an expression value (the committed variant was
-    // Expression). Show empty — the user switched to Data and expects a blank
-    // structured-value textarea, not the expression text.
+    // Fall back to defaultValues
     const fromDefault = defaultValues ? getNestedValue(defaultValues, field.path) : undefined;
     if (typeof fromDefault === "string") {
       return "";
@@ -137,24 +86,7 @@ export function StructuredValueField({ field, id }: StructuredValueFieldProps) {
     return valueToText(fromDefault, field.format);
   });
 
-  // Re-initialise text when the task changes (defaultValues reset — covers
-  // task switch, cancel, and apply) or the user switches format variant.
-  // useEffect fires after commit, so the values are always settled.
-  // `field.format` is included so switching YAML ↔ JSON re-serialises the
-  // current default value in the new format.
-  //
-  // Use a ref-based identity check instead of an isMountedRef flag.
-  // isMountedRef.current is set to true on the first effect run, but React
-  // Strict Mode (development) intentionally double-invokes effects on the
-  // same component instance. The second invocation sees isMountedRef=true
-  // and fires setText with the stale defaultValues, overwriting the
-  // correctly-cleared textarea that the useState initialiser set.
-  //
-  // The ref-equality guard fires only when defaultValues actually changes
-  // (form.reset, task switch, cancel). On the first effect run (mount),
-  // prevDefaultValuesRef === defaultValues, so it is a no-op. In Strict
-  // Mode's second invocation the ref is still equal to defaultValues, so
-  // it is also a no-op. ✓
+  // Re-initialise text when the task changes
   const prevDefaultValuesRef = React.useRef(defaultValues);
   const prevFormatRef = React.useRef(field.format);
   const prevPathRef = React.useRef(field.path);
@@ -165,10 +97,7 @@ export function StructuredValueField({ field, id }: StructuredValueFieldProps) {
     prevDefaultValuesRef.current = defaultValues;
     prevFormatRef.current = field.format;
     prevPathRef.current = field.path;
-    // Mirror the useState initialiser guard: if the default is a plain string
-    // in a json/yaml field it means the committed variant was Expression, so
-    // show an empty textarea — the user switched to Data and the expression
-    // text must not bleed through.
+
     const fromDefault = defaultValues ? getNestedValue(defaultValues, field.path) : undefined;
     if (typeof fromDefault === "string") {
       setText("");

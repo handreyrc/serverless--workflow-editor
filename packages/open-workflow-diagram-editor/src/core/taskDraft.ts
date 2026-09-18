@@ -18,12 +18,6 @@
  * Reconstructs a nested task object from the flat dot-notation form values
  * produced by `flattenTask` in TaskForm. Arrays (child-task-list values) are
  * kept as-is.
- *
- * For example:
- *   `{ "for.each": "${items}", "for.in": "${data}" }`
- * becomes:
- *   `{ for: { each: "${items}", in: "${data}" } }`
- *
  * Empty strings, null, and undefined values are omitted so the resulting
  * object only carries properties that were actually set.
  */
@@ -53,16 +47,6 @@ export function unflattenValues(flat: Record<string, unknown>): Record<string, u
  * Produces an updated task by applying only the dirty form fields onto a deep
  * clone of the original task.
  *
- * The form may render optional sections (e.g. `input`, `output`, `export`)
- * whose fields all have empty / falsy default values. Reconstructing the task
- * purely from `getValues()` would inject empty intermediate objects such as
- * `{ input: { schema: {} } }` that cause the SDK to report missing-required-
- * property errors for fields the user never intended to fill in.
- *
- * By starting from the original task and writing only the paths that the user
- * actually changed, untouched optional sections are left exactly as they were
- * — either with their original values or simply absent.
- *
  * @param original   - The current task snapshot held in the store, used as
  *                     the base for the deep clone.
  * @param allValues  - All flat dot-notation form values from `form.getValues()`.
@@ -75,18 +59,8 @@ export function applyDirtyValues(
   original: Record<string, unknown>,
   allValues: Record<string, unknown>,
   dirtyPaths: Set<string>,
-  /**
-   * Paths that are dirty solely because the variant selector (sentinel) changed.
-   * These represent "the user switched away from the original variant" and must
-   * always delete the corresponding model property — UNLESS the same path (or a
-   * leaf under it) is also independently dirty in `dirtyPaths` (meaning the user
-   * edited the field after switching back).
-   *
-   * Unlike regular dirty paths, sentinel paths cannot rely on `allValues` to
-   * determine the correct action: `getValues()` falls back to `_defaultValues`
-   * for unset paths, so `allValues` may contain stale default-value leaf keys
-   * that should NOT prevent deletion.
-   */
+
+  // Paths that are dirty solely because the variant selector (sentinel) changed.
   sentinelPaths: Set<string> = new Set(),
 ): Record<string, unknown> {
   // Deep clone the original so we never mutate the store value.
@@ -141,14 +115,9 @@ function deepClone<T>(value: T): T {
 function isDirtyPath(dotPath: string, dirtyPaths: Set<string>): boolean {
   if (dirtyPaths.has(dotPath)) return true;
   for (const dirty of dirtyPaths) {
-    // Case 1: dotPath is a leaf under a dirty parent (map field — dirty prefix
-    // is shorter). e.g. dirty="with" matches dotPath="with.method".
+    // Case 1: dotPath is a leaf under a dirty parent
     if (dotPath.startsWith(dirty + ".")) return true;
-    // Case 2: a dirty leaf is nested under dotPath (structured-value field —
-    // the stored value was an object so RHF expanded it into leaf dirty paths,
-    // but the form value was replaced with a scalar "" at the parent path).
-    // e.g. dirty="emit.event.with.data.client.firstName" matches
-    // dotPath="emit.event.with.data".
+    // Case 2: a dirty leaf is nested under dotPath
     if (dirty.startsWith(dotPath + ".")) return true;
   }
   return false;
