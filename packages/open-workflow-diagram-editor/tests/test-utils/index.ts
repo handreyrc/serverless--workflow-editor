@@ -17,4 +17,10 @@
 export { renderWithProviders } from "./render-helpers";
 export { t } from "./translation-helpers";
 export { createFlatGraph } from "./graph-helpers";
-export {nodeAt, parseFixture} from "./workflow-helpers";
+export { nodeAt, parseFixture } from "./workflow-helpers";
+export {
+    EDITABLE_TASK_NODE_ID,
+    editableTaskNode,
+    methodField,
+    dirtyTaskDraft
+} from "./edit-helpers"

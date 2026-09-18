@@ -26,6 +26,7 @@ import { useDiagramEditorContext } from "../../store/DiagramEditorContext";
 import { buildDiagramElements } from "./diagramBuilder";
 import { applyAutoLayout } from "./autoLayout";
 import { SidePanelTrigger } from "@/side-panel/SidePanelTrigger";
+import { useEditSession } from "@/side-panel/EditSession";
 import { ZINDEX } from "../zIndexConstants";
 import { ErrorPage } from "../../diagram-editor/error-pages/ErrorPage";
 
@@ -65,6 +66,8 @@ export const Diagram = ({ divRef, colorMode = "light" }: DiagramProps) => {
     clearPendingViewportRestore,
     isExporting,
   } = useDiagramEditorContext();
+
+  const { requestNavigation } = useEditSession()
 
   const [minimapVisible, setMinimapVisible] = React.useState(false);
   const [layoutError, setLayoutError] = React.useState<Error | null>(null);
@@ -121,9 +124,32 @@ export const Diagram = ({ divRef, colorMode = "light" }: DiagramProps) => {
     [setEdges],
   );
 
+  /* Keep the node highlighted on canvas and in sidepanel the same until user confirms navigation guard action */
+  const applySelectionToNodes = React.useCallback((id: string | null)=>{
+    setNodes((current)=>
+      current.map((node)=>
+        node.selected === (node.id === id)? node: {...node, selected:node.id ===id}
+      )
+    )
+  }, [setNodes])
+
   const onSelectionChange = React.useCallback<RF.OnSelectionChangeFunc>(
-    ({ nodes: selectedNodes }) => setSelectedNodeId(selectedNodes[0]?.id ?? null),
-    [setSelectedNodeId],
+    ({ nodes: selectedNodes }) => {
+      const nextId = selectedNodes[0]?.id ?? null;
+      if(nextId === selectedNodeIdRef.current){
+        return
+      }
+
+      const proceeded = requestNavigation(()=>{
+        setSelectedNodeId(nextId)
+        applySelectionToNodes(nextId)
+      })
+
+      if(!proceeded){
+        applySelectionToNodes(selectedNodeIdRef.current)
+      }
+    },
+    [requestNavigation, setSelectedNodeId, applySelectionToNodes],
   );
 
   // Rebuild nodes and edges when model or errors change (with debouncing).

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+/* DIVERGED FROM SHADCN */
+
 "use client";
 
 import * as React from "react";
@@ -29,7 +31,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 const SIDEBAR_WIDTH = "20rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
-const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
 type SidebarContextProps = {
   state: "expanded" | "collapsed";
@@ -82,19 +83,6 @@ function SidebarProvider({
   const toggleSidebar = React.useCallback(() => {
     return setOpen((open) => !open);
   }, [setOpen]);
-
-  // Adds a keyboard shortcut to toggle the sidebar.
-  React.useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === SIDEBAR_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {
-        event.preventDefault();
-        toggleSidebar();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggleSidebar]);
 
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
@@ -208,6 +196,10 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
       )}
       onClick={(event) => {
         onClick?.(event);
+        /* DIVERGED FROM SHADCN: Cancel toggle, SidePanelTrigger uses this to hold the panel open */
+        if(event.defaultPrevented){
+          return;
+        }
         toggleSidebar();
       }}
       {...props}

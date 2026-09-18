@@ -39,6 +39,12 @@
 
   --accent-foreground: hsl(240 5.9% 10%);
 
+  --destructive: #dc2626;
+
+  --destructive-foreground: #ffffff;
+
+  --ring: hsl(217.2 91.2% 59.8%);
+
   --tooltip-background: hsl(0 0% 100%);
 
   --tooltip-foreground: hsl(222.2 84% 4.9%);
@@ -74,6 +80,12 @@
   --accent: var(--dec-surface-dark-line);
 
   --accent-foreground: hsl(0 0% 98%);
+
+  --destructive: #ef4444;
+
+  --destructive-foreground: #ffffff;
+
+  --ring: hsl(217.2 91.2% 59.8%);
 
   --tooltip-background: hsl(222.2 84% 4.9%);
 
@@ -111,8 +123,34 @@
 
   --color-accent-foreground: var(--accent-foreground);
 
+  --color-destructive: var(--destructive);
+
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-ring: var(--ring);
+
+  /* Consumed inside `.dec-task-form`, which is where `forms.css` defines their values.
+      The mapping has to be here because only this file is in Tailwind's graph. */
+  --color-foreground: var(--foreground);
+
+  --color-muted: var(--muted);
+
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-secondary: var(--secondary);
+
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-card: var(--card);
+
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+
+  --color-popover-foreground: var(--popover-foreground);
+
   --color-tooltip-background: var(--tooltip-background);
-  
+
   --color-tooltip-foreground: var(--tooltip-foreground);
 
   --color-sidebar: var(--sidebar);

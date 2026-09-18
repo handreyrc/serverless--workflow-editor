@@ -14,24 +14,39 @@
  * limitations under the License.
  */
 
+import * as React from "react";
 import { useDiagramEditorContext } from "@/store/DiagramEditorContext";
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
+import { useEditSession } from "@/side-panel/EditSession";
 import { getGeneralErrors } from "@/core";
 
 export function SidePanelTrigger() {
   const { errors, taskReferences, setSelectedNodeId } = useDiagramEditorContext();
-  const { setOpen } = useSidebar();
+  const { open, setOpen } = useSidebar();
+  const { requestNavigation } = useEditSession();
 
   const count = getGeneralErrors(errors, taskReferences).length;
 
+  /* Cancel the sidebar's own toggle so it doesnt close on dirty draft */
+  const toggle = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    if (!open) {
+      setOpen(true);
+      return;
+    }
+    requestNavigation(() => setOpen(false));
+  };
+
   const showWorkflowErrors = () => {
-    setSelectedNodeId(null);
-    setOpen(true);
+    requestNavigation(() => {
+      setSelectedNodeId(null);
+      setOpen(true);
+    });
   };
 
   return (
     <div className="dec-sidebar-trigger">
-      <SidebarTrigger />
+      <SidebarTrigger onClick={toggle} />
       {count > 0 && (
         <button
           type="button"

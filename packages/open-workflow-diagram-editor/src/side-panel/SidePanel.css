@@ -873,4 +873,78 @@
   }
 
   /* ── End task form ───────────────────────────────────────────────────── */
+
+  /* ── Navigation discard guard ────────────────────────────────────────── */
+
+  /* Absolute, not fixed: the guard covers the side panel only */
+  .dec-root .dec-sidebar-guard-overlay {
+    @apply dec:absolute dec:inset-0 dec:z-20;
+    background-color: color-mix(in srgb, var(--sidebar) 68%, transparent);
+    backdrop-filter: blur(1.5px);
+    animation: dec-sidebar-guard-fade 140ms ease-out;
+  }
+
+  .dec-root .dec-sidebar-guard-card {
+    @apply dec:absolute dec:top-1/2 dec:left-1/2 dec:z-20 dec:rounded-xl dec:border dec:p-4;
+    width: min(88%, 286px);
+    transform: translate(-50%, -50%);
+    background-color: var(--sidebar);
+    border-color: var(--sidebar-border);
+    box-shadow: 0 14px 34px -10px rgba(15, 23, 42, 0.45);
+    animation: dec-sidebar-guard-in 140ms ease-out;
+  }
+
+  .dec-root .dec-sidebar-guard-title {
+    @apply dec:flex dec:items-center dec:gap-2 dec:text-sm dec:font-semibold dec:text-gray-900;
+  }
+
+  .dec-root.dark .dec-sidebar-guard-title {
+    @apply dec:text-gray-100;
+  }
+
+  .dec-root .dec-sidebar-guard-icon {
+    @apply dec:h-4 dec:w-4 dec:shrink-0;
+    color: var(--dec-error-accent);
+  }
+
+  .dec-root .dec-sidebar-guard-description {
+    @apply dec:mt-1.5 dec:text-xs dec:leading-relaxed dec:text-gray-600;
+  }
+
+  .dec-root.dark .dec-sidebar-guard-description {
+    @apply dec:text-gray-300;
+  }
+
+  .dec-root .dec-sidebar-guard-actions {
+    @apply dec:mt-4 dec:flex dec:flex-wrap dec:items-center dec:justify-end dec:gap-2;
+  }
+
+  @keyframes dec-sidebar-guard-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes dec-sidebar-guard-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -48%) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dec-root .dec-sidebar-guard-overlay,
+    .dec-root .dec-sidebar-guard-card {
+      animation: none;
+    }
+  }
+ /* ── End navigattion guard ───────────────────────────────────── */
 }
+

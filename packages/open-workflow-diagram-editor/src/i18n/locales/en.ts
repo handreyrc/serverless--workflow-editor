@@ -76,6 +76,10 @@ export const en = {
   "sidebar.map.keyLabel": "Entry key",
   "sidebar.map.valueLabel": "Entry value",
   "sidebar.map.deleteEntry": "Delete entry",
+  "sidebar.guard.title": "Discard unsaved changes?",
+  "sidebar.guard.description": "You have unsaved edits to this node. Leaving will discard them",
+  "sidebar.guard.keepEditing": "Keep editing",
+  "sidebar.guard.discard": "Discard",
 } as const;
 
 export type TranslationKeys = keyof typeof en;

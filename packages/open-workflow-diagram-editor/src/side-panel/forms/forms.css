@@ -14,22 +14,6 @@
  * limitations under the License.
  */
 
-/* Form-only shadcn tokens. Keep these out of the generated UI primitives. */
-@theme inline {
-  --color-foreground: var(--foreground);
-  --color-ring: var(--ring);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-}
-
 .dec-task-form {
   --form-control-bg: #ffffff;
   --form-control-text: #1f2937;

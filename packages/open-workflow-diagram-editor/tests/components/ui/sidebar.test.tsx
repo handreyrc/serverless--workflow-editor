@@ -79,7 +79,7 @@ describe("Sidebar", () => {
     expect(sidebar).toHaveAttribute("data-state", "expanded");
   });
 
-  it("toggles with keyboard shortcut Ctrl+B", async () => {
+  it("does not toggle with keyboard shortcut Ctrl+B - hosts owns it", async () => {
     const user = userEvent.setup();
 
     const { container } = render(
@@ -95,7 +95,7 @@ describe("Sidebar", () => {
 
     await user.keyboard("{Control>}b{/Control}");
 
-    expect(sidebar).toHaveAttribute("data-state", "expanded");
+    expect(sidebar).toHaveAttribute("data-state", "collapsed");
   });
 
   it("renders header and content children", () => {

@@ -28,6 +28,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { SidePanel } from "@/side-panel/SidePanel";
 import { DiagramEditorErrorBoundary } from "./error-pages/DiagramEditorErrorBoundary";
 import { Toaster } from "@/components/ui/sonner";
+import { EditSessionProvider } from "@/side-panel/EditSession";
 
 /**
  * Imperative handle exposed by `DiagramEditor` via `ref`.
@@ -149,10 +150,12 @@ const DiagramEditorBody = ({
           locale={props.locale}
         >
           <SidebarProvider defaultOpen={false}>
+            <EditSessionProvider>
             <div className="dec-diagram-content">
               <DiagramEditorContent diagramDivRef={diagramDivRef} colorMode={resolvedColorMode} />
             </div>
             <SidePanel />
+            </EditSessionProvider>
           </SidebarProvider>
         </DiagramEditorContextProvider>
       </ReactFlowProvider>

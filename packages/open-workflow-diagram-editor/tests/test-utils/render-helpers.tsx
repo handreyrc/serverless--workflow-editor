@@ -21,6 +21,7 @@ import {
   DiagramEditorContext,
   type DiagramEditorContextType,
 } from "../../src/store/DiagramEditorContext";
+import { DiagramEditorContextProvider} from "../../src/store/DiagramEditorContextProvider";
 import { SidebarProvider } from "../../src/components/ui/sidebar";
 import { ReactFlowProvider } from "@xyflow/react";
 import { en } from "../../src/i18n/locales/en";
@@ -93,3 +94,29 @@ export const renderWithProviders = (
 
   return render(ui, { wrapper: Providers, ...renderOptions });
 };
+
+/**
+ * Render function that wraps components in a real DiagramEditorContextProvider 
+ * so the workflow is actually parsed and validated.
+ */
+export const renderWithEditorProviders = (
+  ui: React.ReactElement,
+  {
+    content = "",
+    isReadOnly = false,
+    locale="en"
+  }: {content?: string; isReadOnly?: boolean; locale?: string} = {},
+  renderOptions?: Omit<RenderOptions, "wrapper">,
+) => 
+  render(
+    <ReactFlowProvider>
+      <DiagramEditorContextProvider content={content} isReadOnly={isReadOnly} locale={locale}>
+        <I18nProvider locale={locale} dictionaries={{ en }}>
+          <SidebarProvider defaultOpen={true}>
+            <EditSessionProvider>{ui}</EditSessionProvider>
+          </SidebarProvider>
+        </I18nProvider>
+      </DiagramEditorContextProvider>
+    </ReactFlowProvider>,
+    renderOptions,
+  )
