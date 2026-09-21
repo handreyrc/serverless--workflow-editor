@@ -17,6 +17,7 @@
 import { GraphNodeType } from "@openworkflowspec/sdk";
 import { getSchemaForDefinition } from "./schemaFilter";
 import { schemaToFormFields, FormFieldDescriptor } from "./schemaToFormFields";
+import type { ContentFormat } from "./workflowSdk";
 
 // ---------------------------------------------------------------------------
 // Node-type → schema definition-name mapping
@@ -60,7 +61,7 @@ const _fieldCache = new Map<string, FormFieldDescriptor[]>();
  */
 export function getFormFieldsForNodeType(
   nodeType: string,
-  format: "json" | "yaml" = "yaml",
+  format: ContentFormat = "yaml",
 ): FormFieldDescriptor[] {
   const cacheKey = `${nodeType}:${format}`;
   const cached = _fieldCache.get(cacheKey);

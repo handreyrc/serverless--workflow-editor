@@ -15,6 +15,7 @@
  */
 
 import type { DereferencedSchema } from "./schemaFilter";
+import type { ContentFormat } from "./workflowSdk";
 
 /**
  * A single form field descriptor produced by walking a task's JSON Schema.
@@ -107,7 +108,7 @@ export interface MapField extends FieldBase {
 
 export interface JsonField extends FieldBase {
   kind: "json";
-  format: "json" | "yaml";
+  format: ContentFormat;
 }
 
 export interface OneOfField extends FieldBase {
@@ -313,7 +314,7 @@ export function schemaToFormFields(
   defs?: Record<string, unknown>,
   requiredSet?: Set<string>,
   path = "",
-  format: "json" | "yaml" = "yaml",
+  format: ContentFormat = "yaml",
 ): FormFieldDescriptor[] {
   const fields: FormFieldDescriptor[] = [];
 
@@ -636,7 +637,7 @@ function buildOneOfVariants(
   candidates: unknown[],
   defs: Record<string, unknown> | undefined,
   parentPath: string,
-  format: "json" | "yaml" = "yaml",
+  format: ContentFormat = "yaml",
 ): OneOfVariant[] {
   const leafPath = parentPath || "__leaf__";
 

@@ -85,6 +85,12 @@ function SingleLineStringControl({ field, id }: StringControlProps) {
       }
     }
     setInputValue(typeof live === "string" ? live : "");
+    // `getValues` and `getFieldState` are plain functions created inside
+    // react-hook-form's `useForm` and are NOT wrapped in useCallback, so their
+    // reference changes on every render. Including them in the dependency array
+    // would re-run this effect on every render. They are intentionally omitted
+    // because the logic only needs to re-run when the form resets (new
+    // `defaultValues` identity) or when the field path / kind changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultValues, field.path, field.isRuntimeExpression]);
 
