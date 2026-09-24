@@ -19,6 +19,7 @@ import { Controller, useFormContext, useFormState } from "react-hook-form";
 import { dump, load } from "js-yaml";
 import { Textarea } from "../ui/textarea";
 import type { JsonField } from "../../../core/schemaToFormFields";
+import type { ContentFormat } from "../../../core/workflowSdk";
 import { useTaskFormContext, getNestedValue } from "../taskFormContext";
 import { useFieldError, FieldWithError } from "./fieldHelpers";
 
@@ -31,7 +32,7 @@ export type StructuredValueFieldProps = {
   id?: string | undefined;
 };
 
-function valueToText(value: unknown, format: "json" | "yaml"): string {
+function valueToText(value: unknown, format: ContentFormat): string {
   if (value === undefined || value === null) return "";
   if (typeof value === "string") return value;
   try {
@@ -43,7 +44,7 @@ function valueToText(value: unknown, format: "json" | "yaml"): string {
   }
 }
 
-function parseText(text: string, format: "json" | "yaml"): unknown {
+function parseText(text: string, format: ContentFormat): unknown {
   if (format === "json") {
     return JSON.parse(text);
   }
@@ -104,6 +105,12 @@ export function StructuredValueField({ field, id }: StructuredValueFieldProps) {
       return;
     }
     setText(valueToText(fromDefault, field.format));
+    // The effect intentionally reads `prevDefaultValuesRef`, `prevFormatRef`,
+    // and `prevPathRef` as mutable ref containers — refs are stable objects and
+    // must NOT be in the dependency array (they never change identity, so adding
+    // them would not trigger the effect; and their `.current` mutations are the
+    // side-effect, not the trigger). The deps are exactly the reactive values
+    // that should re-run the effect: `defaultValues`, `field.format`, `field.path`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultValues, field.format, field.path]);
 
