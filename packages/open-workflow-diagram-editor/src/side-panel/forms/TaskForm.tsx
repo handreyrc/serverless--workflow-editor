@@ -19,7 +19,7 @@ import "./forms.css";
 import type { Specification } from "@openworkflowspec/sdk";
 import { useI18n } from "@openworkflowspec/i18n";
 import { getFormFieldsForNodeType, structuralEqual } from "@/core";
-import { FormField, SENTINEL_KEY, computeSentinelDefaults } from "./FormField";
+import { FormField, SENTINEL_KEY, SENTINEL_PREFIX, computeSentinelDefaults } from "./FormField";
 import { useSiblingTaskNames } from "./useSiblingTaskNames";
 import { useDiagramEditorContext } from "@/store/DiagramEditorContext";
 import { TaskFormContext, filterReadOnlyFields } from "./taskFormContext";
@@ -56,6 +56,41 @@ export function flattenTask(value: unknown, prefix = ""): Record<string, unknown
     return result;
   }
   return prefix ? { [prefix]: value } : {};
+}
+
+function setNestedPath(obj: Record<string, unknown>, dotPath: string, value: unknown): void {
+  const parts = dotPath.split(".");
+  let current = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const part = parts[i]!;
+    if (
+      current[part] === undefined ||
+      current[part] === null ||
+      typeof current[part] !== "object"
+    ) {
+      current[part] = {};
+    }
+    current = current[part] as Record<string, unknown>;
+  }
+  current[parts[parts.length - 1]!] = value;
+}
+
+/** RHF reset() skips Controllers for absent paths — pad removed ones with "". */
+export function padRemovedPaths(
+  resetVals: Record<string, unknown>,
+  oldTask: Record<string, unknown>,
+  newTask: Record<string, unknown>,
+): void {
+  const oldFlat = flattenTask(oldTask);
+  const newFlat = flattenTask(newTask);
+  const newPaths = Object.keys(newFlat);
+  for (const path of Object.keys(oldFlat)) {
+    if (path in newFlat || path.startsWith(SENTINEL_PREFIX)) continue;
+    const conflicts = newPaths.some((np) => path.startsWith(np + ".") || np.startsWith(path + "."));
+    if (!conflicts) {
+      setNestedPath(resetVals, path, "");
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -117,12 +152,34 @@ export function TaskForm({ nodeType, task, nodeId, taskReference }: TaskFormProp
   const prevTaskRef = React.useRef<Specification.Task>(task);
   React.useEffect(() => {
     if (structuralEqual(task, prevTaskRef.current)) return;
+    const prevTask = prevTaskRef.current;
     prevTaskRef.current = task;
-    const sentinelDefaults = computeSentinelDefaults(allFields, task as Record<string, unknown>);
-    form.reset({
+    // Preserve the current sentinel selections (e.g. from a just-completed Apply)
+    // so that variant combos stay on the user's chosen variant when the task has
+    // no value for a field (cleared/empty). Extract from the live form values.
+    const liveSentinels: Record<string, string> = {};
+    const liveValues = form.getValues() as Record<string, unknown>;
+    const liveOneof = liveValues.__oneof__ as Record<string, unknown> | undefined;
+    if (liveOneof) {
+      for (const [k, v] of Object.entries(flattenTask(liveOneof))) {
+        if (typeof v === "string") liveSentinels[k] = v;
+      }
+    }
+    const sentinelDefaults = computeSentinelDefaults(
+      allFields,
+      task as Record<string, unknown>,
+      liveSentinels,
+    );
+    const resetVals: Record<string, unknown> = {
       ...(task as Record<string, unknown>),
       ...(Object.keys(sentinelDefaults).length > 0 ? { [SENTINEL_KEY]: sentinelDefaults } : {}),
-    });
+    };
+    padRemovedPaths(
+      resetVals,
+      prevTask as Record<string, unknown>,
+      task as Record<string, unknown>,
+    );
+    form.reset(resetVals);
   }, [task, form, allFields]);
 
   // ── Seed SDK errors into form field slots ─────────────────────────────────

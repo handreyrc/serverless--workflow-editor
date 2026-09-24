@@ -62,8 +62,12 @@ export function applyDirtyValues(
   allValues: Record<string, unknown>,
   dirtyPaths: Set<string>,
 
-  // Paths that are dirty solely because the variant selector (sentinel) changed.
+  // Paths dirty solely because the variant selector (sentinel) changed.
   sentinelPaths: Set<string> = new Set(),
+
+  // For each sentinel-dirty path, the constWrites of the selected variant
+  // (hidden discriminator properties that must be written into the model).
+  sentinelConstWrites: Map<string, Record<string, unknown>> = new Map(),
 ): Record<string, unknown> {
   // Deep clone the original so we never mutate the store value.
   const result = deepClone(original);
@@ -84,10 +88,19 @@ export function applyDirtyValues(
     }
   }
 
-  // For sentinel-derived paths: delete from the model unless a dirty field supplied a value - the path itself, a leaf under it or an ancestor
-  // (Ancestor because RHF reports that when a whole shape has changed like raise.error does when an error name becomes an inline definition)
+  // For sentinel paths: write const discriminators and delete the model path unless
+  // a dirty field (at, under, or above the path) supplied a value.
   for (const sentinelPath of sentinelPaths) {
     const prefix = sentinelPath + ".";
+
+    const constWrites = sentinelConstWrites.get(sentinelPath);
+    if (constWrites && Object.keys(constWrites).length > 0) {
+      const baseParts = sentinelPath === "__root__" ? [] : sentinelPath.split(".");
+      for (const [constKey, constVal] of Object.entries(constWrites)) {
+        setPath(result, [...baseParts, constKey], constVal);
+      }
+    }
+
     const suppliedByEdit = [...dirtyPaths].some(
       (p) => p === sentinelPath || p.startsWith(prefix) || sentinelPath.startsWith(p + "."),
     );

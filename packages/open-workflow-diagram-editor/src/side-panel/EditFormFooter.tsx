@@ -20,10 +20,10 @@ import type { BaseNodeData } from "@/react-flow/nodes/Nodes";
 import { useI18n } from "@openworkflowspec/i18n";
 import { SidebarFooter } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { useFormState } from "react-hook-form";
+import { useFormState, type Control } from "react-hook-form";
 import { updateTask } from "@/core/workflowEditing";
 import { applyDirtyValues } from "@/core/taskDraft";
-import { flattenTask } from "@/side-panel/forms/TaskForm";
+import { flattenTask, padRemovedPaths } from "@/side-panel/forms/TaskForm";
 import {
   computeSentinelDefaults,
   SENTINEL_KEY,
@@ -31,6 +31,7 @@ import {
   SENTINEL_SUFFIX,
 } from "@/side-panel/forms/FormField";
 import { getFormFieldsForNodeType } from "@/core";
+import type { FormFieldDescriptor, OneOfField } from "@/core/schemaToFormFields";
 import { useDiagramEditorContext } from "@/store/DiagramEditorContext";
 import { useEditSession } from "./EditSession";
 import { Check } from "lucide-react";
@@ -38,6 +39,42 @@ import type { Specification } from "@openworkflowspec/sdk";
 
 /* How long the applied message stays in footer */
 const APPLIED_MESSAGE_MS = 2400;
+
+/** Recursively collects all `one-of` fields from a flat field list. */
+function collectOneOfFields(field: FormFieldDescriptor): OneOfField[] {
+  if (field.kind === "one-of") {
+    const nested = field.variants.flatMap((v) => v.fields.flatMap(collectOneOfFields));
+    return [field, ...nested];
+  }
+  if (field.kind === "object") {
+    return field.children.flatMap(collectOneOfFields);
+  }
+  return [];
+}
+
+/**
+ * Counts dirty paths that represent real model changes, excluding phantom
+ * entries created by variant switching.  A path whose current value AND
+ * default are both "empty" (undefined / null / "") maps to the same model
+ * operation (delete), so it is not a meaningful change.
+ */
+function filterPhantomDirty(
+  dirtyPaths: string[],
+  formValues: Record<string, unknown>,
+  control: Control<Record<string, unknown>>,
+): number {
+  const flatValues = flattenTask(formValues);
+  const flatDefaults = flattenTask(
+    (control as unknown as { _defaultValues: Record<string, unknown> })._defaultValues,
+  );
+  return dirtyPaths.filter((p) => {
+    const v = flatValues[p];
+    const d = flatDefaults[p];
+    const vEmpty = v === undefined || v === null || v === "";
+    const dEmpty = d === undefined || d === null || d === "";
+    return !(vEmpty && dEmpty);
+  }).length;
+}
 
 type DraftStatusProps = {
   changedCount: number;
@@ -92,10 +129,11 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
     return null;
   }
 
-  // Use the subscribed dirtyFields (public API) for the UI count
-  const changedCount = Object.keys(flattenTask(dirtyFields as Record<string, unknown>)).filter(
+  // Use the subscribed dirtyFields (public API) for the UI count.
+  const flatDirtyKeys = Object.keys(flattenTask(dirtyFields as Record<string, unknown>)).filter(
     (p) => !p.startsWith(SENTINEL_PREFIX),
-  ).length;
+  );
+  const changedCount = filterPhantomDirty(flatDirtyKeys, form.getValues(), form.control);
 
   const handleCancel = () => {
     const nodeType = node.type ?? "";
@@ -109,16 +147,10 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
   };
 
   const handleApply = () => {
-    // TODO: Should add error handling if apply fails but first need to decide how to display that to the user before implementing
-    // RHF stores form values as a nested object (dot-notation names are resolved
-    // as nested paths internally). Flatten back to dot-notation so applyDirtyValues
-    // can match keys against its dirtyPaths set correctly.
+    // TODO: add error handling once we decide how to surface apply failures.
     const flatValues = flattenTask(form.getValues());
     const rawFlatDirty = Object.keys(flattenTask(dirtyFields));
     const flatDirty = new Set<string>();
-    // Sentinel paths: dirty solely because the variant selector changed.
-    // Kept separate so applyDirtyValues can handle them correctly — they always
-    // delete the model property unless the field is also independently dirty.
     const sentinelPaths = new Set<string>();
     for (const path of rawFlatDirty) {
       if (path.startsWith(SENTINEL_PREFIX)) {
@@ -127,23 +159,57 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
         flatDirty.add(path);
       }
     }
+
+    // Build constWrites: find each sentinel-dirty path's selected variant and
+    // collect its const discriminator properties.
+    const nodeType = node.type ?? "";
+    const allFields = nodeType ? getFormFieldsForNodeType(nodeType) : [];
+    const sentinelConstWrites = new Map<string, Record<string, unknown>>();
+    for (const sentinelPath of sentinelPaths) {
+      const selectedLabel = flatValues[`${SENTINEL_PREFIX}${sentinelPath}${SENTINEL_SUFFIX}`] as
+        | string
+        | undefined;
+      if (!selectedLabel) continue;
+      const oneOfField = allFields.flatMap(collectOneOfFields).find((f) => f.path === sentinelPath);
+      if (!oneOfField) continue;
+      const variant = oneOfField.variants.find((v) => v.label === selectedLabel);
+      if (variant && Object.keys(variant.constWrites).length > 0) {
+        sentinelConstWrites.set(sentinelPath, variant.constWrites);
+      }
+    }
+
     const updated = applyDirtyValues(
       task as unknown as Record<string, unknown>,
       flatValues,
       flatDirty,
       sentinelPaths,
+      sentinelConstWrites,
     ) as Specification.Task;
     const updatedModel = updateTask(model, node.id, updated);
     commitWorkflow(updatedModel);
-    // Reset to the committed task state (not form.getValues()) so that
-    // defaultValues reflect what was actually saved.
-    const nodeType = node.type ?? "";
-    const allFields = nodeType ? getFormFieldsForNodeType(nodeType) : [];
-    const sentinelDefaults = computeSentinelDefaults(allFields, updated as Record<string, unknown>);
-    form.reset({
+    // Reset to committed state; pass current sentinel labels so variant
+    // selections are preserved even when the cleared field has no data match.
+    const currentSentinels: Record<string, string> = {};
+    for (const [flatKey, val] of Object.entries(flatValues)) {
+      if (
+        flatKey.startsWith(SENTINEL_PREFIX) &&
+        flatKey.endsWith(SENTINEL_SUFFIX) &&
+        typeof val === "string"
+      ) {
+        currentSentinels[flatKey.slice(SENTINEL_PREFIX.length, -SENTINEL_SUFFIX.length)] = val;
+      }
+    }
+    const sentinelDefaults = computeSentinelDefaults(
+      allFields,
+      updated as Record<string, unknown>,
+      currentSentinels,
+    );
+    const resetVals: Record<string, unknown> = {
       ...(updated as Record<string, unknown>),
       ...(Object.keys(sentinelDefaults).length > 0 ? { [SENTINEL_KEY]: sentinelDefaults } : {}),
-    });
+    };
+    padRemovedPaths(resetVals, task as Record<string, unknown>, updated as Record<string, unknown>);
+    form.reset(resetVals);
     setAppliedNodeId(node.id);
 
     if (dismissTimer.current !== null) {
