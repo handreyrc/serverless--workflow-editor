@@ -19,7 +19,7 @@ import "./forms.css";
 import type { Specification } from "@openworkflowspec/sdk";
 import { useI18n } from "@openworkflowspec/i18n";
 import { getFormFieldsForNodeType, structuralEqual } from "@/core";
-import { FormField, computeSentinelDefaults } from "./FormField";
+import { FormField, SENTINEL_KEY, computeSentinelDefaults } from "./FormField";
 import { useSiblingTaskNames } from "./useSiblingTaskNames";
 import { useDiagramEditorContext } from "@/store/DiagramEditorContext";
 import { TaskFormContext, filterReadOnlyFields } from "./taskFormContext";
@@ -101,7 +101,7 @@ export function TaskForm({ nodeType, task, nodeId, taskReference }: TaskFormProp
     const sentinelDefaults = computeSentinelDefaults(allFields, task as Record<string, unknown>);
     form.reset({
       ...(task as Record<string, unknown>),
-      ...(Object.keys(sentinelDefaults).length > 0 ? { __oneof__: sentinelDefaults } : {}),
+      ...(Object.keys(sentinelDefaults).length > 0 ? { [SENTINEL_KEY]: sentinelDefaults } : {}),
     });
     // `task` is intentionally excluded: on node change we always reset to the
     // current task snapshot. External task mutations (undo/redo) are handled
@@ -121,7 +121,7 @@ export function TaskForm({ nodeType, task, nodeId, taskReference }: TaskFormProp
     const sentinelDefaults = computeSentinelDefaults(allFields, task as Record<string, unknown>);
     form.reset({
       ...(task as Record<string, unknown>),
-      ...(Object.keys(sentinelDefaults).length > 0 ? { __oneof__: sentinelDefaults } : {}),
+      ...(Object.keys(sentinelDefaults).length > 0 ? { [SENTINEL_KEY]: sentinelDefaults } : {}),
     });
   }, [task, form, allFields]);
 

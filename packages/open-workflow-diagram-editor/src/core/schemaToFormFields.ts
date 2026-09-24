@@ -250,12 +250,15 @@ function isFlowDirectiveSchema(
 /** Derive a human-readable label from a schema node and the property key. */
 function deriveLabel(schema: Record<string, unknown>, key: string): string {
   if (typeof schema.title === "string") {
-    // Strip any CamelCase prefix from composite titles like "ForTaskDo" → "Do"
     const words = schema.title
       .replace(/([A-Z])/g, " $1")
       .trim()
       .split(" ");
-    return words[words.length - 1] ?? key;
+    const lastWord = words[words.length - 1];
+    // Use the last word only if it matches the property key (case-insensitive).
+    if (lastWord !== undefined && lastWord.toLowerCase() === key.toLowerCase()) {
+      return lastWord;
+    }
   }
   return key;
 }
@@ -283,6 +286,15 @@ function formatVariantLabel(title: string): string {
     .replace(/([A-Z][a-z]+)/g, " $1")
     .replace(/([A-Z]+)(?=[A-Z][a-z])/g, " $1")
     .trim();
+}
+
+const API_ENDPOINT_PLACEHOLDER = "https://example.com/api/{id}";
+const ADDRESS_PATH_SUFFIXES = ["endpoint", "uri", "source"] as const;
+
+/* Whether a path holds the address of a service in workflow calls - and should get the API-endpoint example */
+function isApiEndpointPath(path: string): boolean {
+  const lower = path.toLowerCase();
+  return ADDRESS_PATH_SUFFIXES.some((suffix) => lower.endsWith(suffix));
 }
 
 /** Only include the `description` key when it has a value (exactOptionalPropertyTypes). */
@@ -640,6 +652,7 @@ function buildOneOfVariants(
   format: ContentFormat = "yaml",
 ): OneOfVariant[] {
   const leafPath = parentPath || "__leaf__";
+  const isApiEndpoint = isApiEndpointPath(parentPath);
 
   // First pass: resolve candidate refs and build raw variant list
   const resolvedList = candidates.flatMap((candidate, idx): ResolvedVariant[] => {
@@ -753,17 +766,8 @@ function buildOneOfVariants(
         ];
       } else {
         // plain string (or uriTemplate anyOf or runtimeExpression)
-        const isUriOrTemplate =
-          (typeof c.$ref === "string" && c.$ref.includes("uriTemplate")) ||
-          resolved.title === "UriTemplate" ||
-          parentPath.toLowerCase().endsWith("endpoint") ||
-          parentPath.toLowerCase().endsWith("uri");
         const isRe = isRuntimeExpressionSchema(c, resolved);
-        const placeholder = isUriOrTemplate
-          ? "https://example.com/api/{id}"
-          : isRe
-            ? "${...}"
-            : undefined;
+        const placeholder = isRe ? "${...}" : isApiEndpoint ? API_ENDPOINT_PLACEHOLDER : undefined;
 
         leafField = {
           kind: "string",
@@ -840,8 +844,7 @@ function buildOneOfVariants(
   for (const item of resolvedList) {
     if (item.kind === "string") {
       const isUriContext =
-        parentPath.toLowerCase().endsWith("endpoint") ||
-        parentPath.toLowerCase().endsWith("uri") ||
+        isApiEndpoint ||
         (typeof item.c.$ref === "string" && item.c.$ref.includes("uriTemplate")) ||
         item.resolved.title === "UriTemplate";
 
@@ -864,8 +867,8 @@ function buildOneOfVariants(
           required: false,
           multiline: false,
           isRuntimeExpression: isRe,
-          ...(isUriContext
-            ? { placeholder: "https://example.com/api/{id}" }
+          ...(isApiEndpoint
+            ? { placeholder: API_ENDPOINT_PLACEHOLDER }
             : inheritedPlaceholder !== undefined
               ? { placeholder: inheritedPlaceholder }
               : {}),
@@ -880,7 +883,9 @@ function buildOneOfVariants(
         const merged = mergedStringVariant.fields[0] as StringField;
         if (isUriContext) {
           mergedStringVariant.label = "URI";
-          merged.placeholder = "https://example.com/api/{id}";
+        }
+        if (isApiEndpoint) {
+          merged.placeholder = API_ENDPOINT_PLACEHOLDER;
         } else if (isRe && merged.placeholder === undefined && inheritedPlaceholder !== undefined) {
           merged.placeholder = inheritedPlaceholder;
         }

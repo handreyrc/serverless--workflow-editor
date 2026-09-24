@@ -24,7 +24,12 @@ import { useFormState } from "react-hook-form";
 import { updateTask } from "@/core/workflowEditing";
 import { applyDirtyValues } from "@/core/taskDraft";
 import { flattenTask } from "@/side-panel/forms/TaskForm";
-import { computeSentinelDefaults } from "@/side-panel/forms/FormField";
+import {
+  computeSentinelDefaults,
+  SENTINEL_KEY,
+  SENTINEL_PREFIX,
+  SENTINEL_SUFFIX,
+} from "@/side-panel/forms/FormField";
 import { getFormFieldsForNodeType } from "@/core";
 import { useDiagramEditorContext } from "@/store/DiagramEditorContext";
 import { useEditSession } from "./EditSession";
@@ -33,9 +38,6 @@ import type { Specification } from "@openworkflowspec/sdk";
 
 /* How long the applied message stays in footer */
 const APPLIED_MESSAGE_MS = 2400;
-
-const SENTINEL_KEY = "__oneof__";
-const SENTINEL_PREFIX = `${SENTINEL_KEY}.`;
 
 type DraftStatusProps = {
   changedCount: number;
@@ -120,7 +122,7 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
     const sentinelPaths = new Set<string>();
     for (const path of rawFlatDirty) {
       if (path.startsWith(SENTINEL_PREFIX)) {
-        sentinelPaths.add(path.slice(SENTINEL_PREFIX.length));
+        sentinelPaths.add(path.slice(SENTINEL_PREFIX.length, -SENTINEL_SUFFIX.length));
       } else {
         flatDirty.add(path);
       }

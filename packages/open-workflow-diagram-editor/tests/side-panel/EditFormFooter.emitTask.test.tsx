@@ -22,7 +22,7 @@
  * simulate exactly what OneOfFieldRow.handleVariantChange does:
  *
  *   handleVariantChange (Data → Expression):
- *     1. setValue("__oneof__.emit.event.with.data", "Expression", { shouldDirty: true })
+ *     1. setValue("__oneof__.emit.event.with.data.__self__", "Expression", { shouldDirty: true })
  *     2. setValue("emit.event.with.data", undefined, { shouldDirty: false })
  *        (kind boundary: json ≠ string)
  *
@@ -80,7 +80,7 @@ const exprEmitNode = nodeAt(EXPR_WORKFLOW, EXPR_NODE_ID);
 // Sentinel path prefix used by OneOfFieldRow
 const SENTINEL_PREFIX = "__oneof__." as const;
 const DATA_PATH = "emit.event.with.data" as const;
-const SENTINEL_PATH = `${SENTINEL_PREFIX}${DATA_PATH}` as const;
+const SENTINEL_PATH = `${SENTINEL_PREFIX}${DATA_PATH}.__self__` as const;
 
 /**
  * FormSpy: rendered as a sibling of TaskForm inside the same EditSessionProvider.
@@ -397,7 +397,7 @@ describe("EditFormFooter — full round-trip: Data(obj)→Expression(ok)→Data(
     await act(async () => {
       // Simulate handleVariantChange: Data(1) → Expression(0)
       // Sentinel dirty; data path cleared (kind boundary)
-      formRef.current!.setValue("__oneof__.emit.event.with.data" as never, "Expression" as never, {
+      formRef.current!.setValue(SENTINEL_PATH as never, "Expression" as never, {
         shouldDirty: true,
       });
       formRef.current!.setValue("emit.event.with.data" as never, undefined as never, {
@@ -431,7 +431,7 @@ describe("EditFormFooter — full round-trip: Data(obj)→Expression(ok)→Data(
 
     // Step 4: switch Expression(0) → Data(1), leave textarea empty, Apply
     await act(async () => {
-      formRef.current!.setValue("__oneof__.emit.event.with.data" as never, "Data" as never, {
+      formRef.current!.setValue(SENTINEL_PATH as never, "Data" as never, {
         shouldDirty: true,
       });
       formRef.current!.setValue("emit.event.with.data" as never, undefined as never, {

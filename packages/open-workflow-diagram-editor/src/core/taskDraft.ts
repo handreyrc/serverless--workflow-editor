@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { getTaskTypeKey } from "./taskTypes";
+
 /**
  * Reconstructs a nested task object from the flat dot-notation form values
  * produced by `flattenTask` in TaskForm. Arrays (child-task-list values) are
@@ -65,6 +67,7 @@ export function applyDirtyValues(
 ): Record<string, unknown> {
   // Deep clone the original so we never mutate the store value.
   const result = deepClone(original);
+  const taskTypeKey = getTaskTypeKey(original);
 
   for (const [dotPath, value] of Object.entries(allValues)) {
     if (!isDirtyPath(dotPath, dirtyPaths)) continue;
@@ -72,22 +75,24 @@ export function applyDirtyValues(
     // A dirty path with an empty / null value means the user cleared the
     // field — delete it from the clone rather than writing an empty string.
     if (value === undefined || value === null || value === "") {
-      deletePath(result, dotPath.split("."));
+      deletePath(result, dotPath.split("."), {
+        prune: !sentinelPaths.has(dotPath),
+        protectedKey: taskTypeKey,
+      });
     } else {
       setPath(result, dotPath.split("."), value);
     }
   }
 
-  // For sentinel-derived paths: delete from the model unless the same path (or
-  // a leaf under it) is independently dirty in dirtyPaths — which means the
-  // user actually edited the field after switching back to it.
+  // For sentinel-derived paths: delete from the model unless a dirty field supplied a value - the path itself, a leaf under it or an ancestor
+  // (Ancestor because RHF reports that when a whole shape has changed like raise.error does when an error name becomes an inline definition)
   for (const sentinelPath of sentinelPaths) {
     const prefix = sentinelPath + ".";
-    const independentlyDirty =
-      dirtyPaths.has(sentinelPath) ||
-      [...dirtyPaths].some((p) => p === sentinelPath || p.startsWith(prefix));
-    if (!independentlyDirty) {
-      deletePath(result, sentinelPath.split("."));
+    const suppliedByEdit = [...dirtyPaths].some(
+      (p) => p === sentinelPath || p.startsWith(prefix) || sentinelPath.startsWith(p + "."),
+    );
+    if (!suppliedByEdit) {
+      deletePath(result, sentinelPath.split("."), { prune: false });
     }
   }
 
@@ -151,8 +156,15 @@ function setPath(obj: Record<string, unknown>, parts: string[], value: unknown):
   current[parts[parts.length - 1]!] = value;
 }
 
-/** Removes a key at a dot-notation path within `obj`. Cleans up empty parent objects. */
-function deletePath(obj: Record<string, unknown>, parts: string[]): void {
+/** Removes a key at a dot-notation path within `obj`. Cleans up empty parent objects.
+ * @param options.prune        - Whether parents emptied by the deletion are removed too.
+ * @param options.protectedKey - A top-level key that is never pruned
+ */
+function deletePath(
+  obj: Record<string, unknown>,
+  parts: string[],
+  options: { prune: boolean; protectedKey?: string | undefined } = { prune: true },
+): void {
   if (parts.length === 0) return;
   if (parts.some((p) => !isSafeKey(p))) {
     throw new Error(`Unsafe path segment in: ${parts.join(".")}`);
@@ -164,9 +176,9 @@ function deletePath(obj: Record<string, unknown>, parts: string[]): void {
   const head = parts[0]!;
   const child = obj[head];
   if (child !== null && typeof child === "object" && !Array.isArray(child)) {
-    deletePath(child as Record<string, unknown>, parts.slice(1));
+    deletePath(child as Record<string, unknown>, parts.slice(1), { prune: options.prune });
     // Remove the parent if it became empty after deletion.
-    if (Object.keys(child).length === 0) {
+    if (options.prune && head !== options.protectedKey && Object.keys(child).length === 0) {
       delete obj[head];
     }
   }

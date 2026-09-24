@@ -1,0 +1,49 @@
+#
+# Copyright 2021-Present The Open Workflow Specification Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Editing focus: the raise task's error, which is the only one-of in the schema
+# whose branches nest — an inline definition holds four further one-ofs (type,
+# instance, title and detail are each a literal or an expression), while the other
+# branch is a plain name from `use.errors`.
+#
+# One task per branch and nothing else, so the variant selector can be switched in
+# either direction without hunting for the node. `raiseInline` deliberately mixes
+# literal and expression values so the nested selectors do not all read the same.
+document:
+  dsl: "1.0.3"
+  namespace: examples
+  name: raise-error-shapes
+  version: "0.1.0"
+use:
+  errors:
+    notImplemented:
+      type: https://open-workflow-specification.org/errors/not-implemented
+      status: 500
+      title: Not Implemented
+do:
+  # Reference branch: the name must match a key under `use.errors` above.
+  - raiseByReference:
+      raise:
+        error: notImplemented
+  # Inline branch, with a literal type/instance/title and an expression detail,
+  # so each nested selector starts on a different mode.
+  - raiseByDefinition:
+      raise:
+        error:
+          type: https://open-workflow-specification.org/errors/validation
+          status: 400
+          instance: /do/0/raiseByReference
+          title: Invalid reading
+          detail: ${ .message }

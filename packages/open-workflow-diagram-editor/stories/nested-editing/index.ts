@@ -19,6 +19,7 @@ export { default as callEndpointUnion } from "./workflows/call-endpoint-union.ya
 export { default as callHeadersMap } from "./workflows/call-headers-map.yaml?raw";
 export { default as listenDeepNesting } from "./workflows/listen-deep-nesting.yaml?raw";
 export { default as nestedValidation } from "./workflows/nested-validation.yaml?raw";
+export { default as raiseErrorShapes } from "./workflows/raise-error-shapes.yaml?raw";
 export { default as runTaskArray } from "./workflows/run-task-array.yaml?raw";
 export { default as setOpenMap } from "./workflows/set-open-map.yaml?raw";
 export { default as switchLockedCases } from "./workflows/switch-locked-cases.yaml?raw";

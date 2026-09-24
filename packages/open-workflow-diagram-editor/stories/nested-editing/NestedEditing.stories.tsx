@@ -49,6 +49,7 @@ export const CallEndpointUnion: Story = createWorkflowStory(workflows.callEndpoi
 export const CallHeadersMap: Story = createWorkflowStory(workflows.callHeadersMap);
 export const ListenDeepNesting: Story = createWorkflowStory(workflows.listenDeepNesting);
 export const NestedValidation: Story = createWorkflowStory(workflows.nestedValidation);
+export const RaiseErrorShapes: Story = createWorkflowStory(workflows.raiseErrorShapes);
 export const RunTaskArray: Story = createWorkflowStory(workflows.runTaskArray);
 export const SetOpenMap: Story = createWorkflowStory(workflows.setOpenMap);
 export const SwitchLockedCases: Story = {

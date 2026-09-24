@@ -21,6 +21,7 @@ import type {
   StringField,
   ObjectField,
   JsonField,
+  FormFieldDescriptor,
 } from "../../src/core/schemaToFormFields";
 
 describe("schemaToFormFields endpoint and oneOf unwrapping", () => {
@@ -301,5 +302,124 @@ describe("schemaToFormFields emitTask transparent-wrapper elimination", () => {
     const withChild = emitField?.children.find((f) => f.path === "emit.event.with");
     expect(withChild).toBeDefined();
     expect(withChild?.kind).toBe("object");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Labels and placeholders
+// ---------------------------------------------------------------------------
+
+/** Every field as `path  kind  "label"  placeholder`, variants inlined, depth-first. */
+function describeFields(fields: FormFieldDescriptor[], trail = ""): string[] {
+  return fields.flatMap((f) => {
+    const placeholder = f.kind === "string" && f.placeholder ? `  ph=${f.placeholder}` : "";
+    const line = `${trail}${f.path}  ${f.kind}  "${f.label}"${placeholder}`;
+    if (f.kind === "object") return [line, ...describeFields(f.children, trail)];
+    if (f.kind === "one-of")
+      return [
+        line,
+        ...f.variants.flatMap((v) => [
+          `${trail}  variant "${v.label}"`,
+          ...describeFields(v.fields, `${trail}    `),
+        ]),
+      ];
+    return [line];
+  });
+}
+
+/** The task's own property, without the seven shared `taskBase` fields after it. */
+function ownFields(nodeType: string): FormFieldDescriptor[] {
+  const [own] = getFormFieldsForNodeType(nodeType);
+  return own ? [own] : [];
+}
+
+describe("schemaToFormFields labels", () => {
+  it.each([
+    ["raise"],
+    ["emit"],
+    ["for"],
+    ["fork"],
+    ["listen"],
+    ["run"],
+    ["set"],
+    ["switch"],
+    ["try"],
+    ["wait"],
+  ])("labels the %s task's own property with its key, not its title", (nodeType) => {
+    expect(getFormFieldsForNodeType(nodeType)[0]?.label).toBe(nodeType);
+  });
+
+  it("describes the raise task's error in full", () => {
+    expect(describeFields(ownFields("raise"))).toMatchInlineSnapshot(`
+     [
+       "raise  object  "raise"",
+       "raise.error  one-of  "Error"",
+       "  variant "Raise Error Definition"",
+       "    raise.error.type  one-of  "Type"",
+       "      variant "Literal Error Type"",
+       "        raise.error.type  string  "Literal Error Type"",
+       "      variant "Expression Error Type"",
+       "        raise.error.type  string  "Expression Error Type"  ph=\${...}",
+       "    raise.error.status  number  "Status"",
+       "    raise.error.instance  one-of  "Instance"",
+       "      variant "Literal Error Instance"",
+       "        raise.error.instance  string  "Literal Error Instance"",
+       "      variant "Expression Error Instance"",
+       "        raise.error.instance  string  "Expression Error Instance"  ph=\${...}",
+       "    raise.error.title  one-of  "Title"",
+       "      variant "Expression Error Title"",
+       "        raise.error.title  string  "Expression Error Title"  ph=\${...}",
+       "      variant "Literal Error Title"",
+       "        raise.error.title  string  "Literal Error Title"",
+       "    raise.error.detail  one-of  "detail"",
+       "      variant "Expression Error Details"",
+       "        raise.error.detail  string  "Expression Error Details"  ph=\${...}",
+       "      variant "Literal Error Details"",
+       "        raise.error.detail  string  "Literal Error Details"",
+       "  variant "Raise Error Reference"",
+       "    raise.error  string  "Raise Error Reference"",
+     ]
+   `);
+  });
+
+  it("describes a task whose own property is a one-of", () => {
+    expect(describeFields(ownFields("wait"))).toMatchInlineSnapshot(`
+     [
+       "wait  one-of  "wait"",
+       "  variant "Duration Inline"",
+       "    wait.days  number  "Days"",
+       "    wait.hours  number  "Hours"",
+       "    wait.minutes  number  "Minutes"",
+       "    wait.seconds  number  "Seconds"",
+       "    wait.milliseconds  number  "Milliseconds"",
+       "  variant "Duration Expression"",
+       "    wait  string  "Duration Expression"  ph=\${...}",
+     ]
+   `);
+  });
+});
+
+describe("schemaToFormFields URI placeholders", () => {
+  const API_ENDPOINT_EXAMPLE = "https://example.com/api/{id}";
+
+  /** Every placeholder in the task, so an absence assertion cannot pass vacuously. */
+  const placeholdersIn = (fields: FormFieldDescriptor[]): string[] =>
+    describeFields(fields)
+      .filter((line) => line.includes("  ph="))
+      .map((line) => line.slice(line.indexOf("  ph=") + 5));
+
+  it("suggests an API endpoint where the path is one", () => {
+    const endpoint = getFormFieldsForNodeType("set").find((f) => f.path === "input");
+    expect(endpoint).toBeDefined();
+
+    expect(placeholdersIn([endpoint!])).toContain(API_ENDPOINT_EXAMPLE);
+  });
+
+  it("does not suggest one for an error type, which is a URI but not one to call", () => {
+    const placeholders = placeholdersIn(ownFields("raise"));
+
+    // Non-empty, so `not.toContain` is a real assertion rather than a vacuous one.
+    expect(placeholders.length).toBeGreaterThan(0);
+    expect(placeholders).not.toContain(API_ENDPOINT_EXAMPLE);
   });
 });

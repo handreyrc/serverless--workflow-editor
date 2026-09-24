@@ -584,3 +584,41 @@ export const NESTED_CONTAINERS_WORKFLOW = {
     { doTask: { do: [{ storeProfile: { set: { stored: true } } }] } },
   ],
 };
+
+/**
+ * Both shapes a `raise` task's error can take, side by side.
+ * `raise.error` is a one-of: an inline error *definition* (an object) or a *reference*
+ * (a string naming a key in `use.errors`).
+ */
+
+export const RAISE_BOTH_ERROR_SHAPES_WORKFLOW = {
+  document: { dsl: "1.0.3", name: "raise-shapes", version: "1.0.0", namespace: "default" },
+  use: {
+    errors: {
+      notImplemented: {
+        type: "https://open-workflow-specification.org/errors/not-implemented",
+        status: 500,
+      },
+      serviceUnavailable: {
+        type: "https://open-workflow-specification.org/errors/service-unavailable",
+        status: 503,
+      },
+    },
+  },
+  do: [
+    { raiseByReference: { raise: { error: "notImplemented" } } },
+    {
+      raiseInline: {
+        raise: {
+          error: {
+            type: "https://open-workflow-specification.org/errors/validation",
+            status: 400,
+            instance: "/do/0/raiseByReference",
+            title: "Invalid reading",
+            detail: "${ .message }",
+          },
+        },
+      },
+    },
+  ],
+};

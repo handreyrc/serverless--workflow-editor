@@ -16,7 +16,7 @@
 
 import * as React from "react";
 import { HelpCircle, ChevronDown, ChevronRight } from "lucide-react";
-import { useFormContext } from "react-hook-form";
+import { useFormContext, useWatch } from "react-hook-form";
 import { useI18n } from "@openworkflowspec/i18n";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { FormFieldDescriptor, ObjectField, OneOfField } from "../../core/schemaToFormFields";
@@ -30,6 +30,15 @@ import {
   ComboboxList,
 } from "./ui/combobox";
 import { KeyValueMapField } from "./customFields/KeyValueMapField";
+
+// ---------------------------------------------------------------------------
+// Variant Sentinels
+// ---------------------------------------------------------------------------
+
+export const SENTINEL_KEY = "__oneof__";
+export const SENTINEL_SELF_KEY = "__self__";
+export const SENTINEL_PREFIX = `${SENTINEL_KEY}.`;
+export const SENTINEL_SUFFIX = `.${SENTINEL_SELF_KEY}`;
 
 // ---------------------------------------------------------------------------
 // FormField — single form row (label + optional tooltip + control)
@@ -196,15 +205,25 @@ function ObjectFieldRow({ field }: { field: ObjectField }) {
 
 function OneOfFieldRow({ field }: { field: OneOfField }) {
   const { isReadOnly, taskData } = useTaskFormContext();
+  const {control, getValues, setValue, register} = useFormContext<Record<string, unknown>>();
+  const sentinelPath = `${SENTINEL_PREFIX}${field.path}${SENTINEL_SUFFIX}`;
 
-  // Derive the initial variant index from the actual task data in both modes.
+  // Watched so the row follows a reset as well as switch
+  const sentinelLabel = useWatch({control, name: sentinelPath as never}) as unknown
+
   const derivedIdx = React.useMemo(() => {
+    if(typeof sentinelLabel === "string" && sentinelLabel !==""){
+      const chosen = field.variants.findIndex((v)=> v.label === sentinelLabel)
+      if(chosen !== -1){
+        return chosen
+      }
+    }
     // For the root one-of the relevant data is the whole task object;
     // for property-level one-ofs it's the value at the field's path.
     const dataAtPath = field.path === "__root__" ? taskData : getNestedValue(taskData, field.path);
     const idx = field.variants.findIndex((v) => v.matchesData(dataAtPath));
     return idx === -1 ? 0 : idx;
-  }, [field.path, field.variants, taskData]);
+  }, [field.path, field.variants, taskData, sentinelLabel]);
 
   const [selectedVariantIdx, setSelectedVariantIdx] = React.useState(derivedIdx);
 
@@ -218,8 +237,6 @@ function OneOfFieldRow({ field }: { field: OneOfField }) {
   // Per-variant saved values — preserves field data when switching variants
   // and then switching back, so the user does not have to re-type values.
   const savedVariantValues = React.useRef<Map<number, Record<string, unknown>>>(new Map());
-  const { getValues, setValue, register } = useFormContext<Record<string, unknown>>();
-  const sentinelPath = `__oneof__.${field.path}`;
   const sentinelRef = register(sentinelPath as never);
 
   // The initial sentinel value is the committed variant label (derived from
@@ -245,11 +262,8 @@ function OneOfFieldRow({ field }: { field: OneOfField }) {
       setSelectedVariantIdx(newIdx);
 
       const newLabel = field.variants[newIdx]?.label ?? "";
-      // Update sentinel: compare against the committed variant label so that
-      // switching back to the original variant marks the sentinel clean.
-      setValue(sentinelPath as never, newLabel as never, {
-        shouldDirty: newLabel !== commitedVariantLabel,
-      });
+      // Update sentinel: always dirty - the default is the committed variants label so returning it clears the flag
+      setValue(sentinelPath as never, newLabel as never, { shouldDirty: true });
 
       // Restore saved values for the new variant if previously stored;
       // otherwise clear its leaf paths so stale values from the old variant.
@@ -281,14 +295,17 @@ function OneOfFieldRow({ field }: { field: OneOfField }) {
 
       // Paths exclusive to the old variant: clear them silently (no dirty
       // needed — dirty is tracked via the sentinel).
+      const newPaths = [...newKindByPath.keys()];
       for (const path of currentKindByPath.keys()) {
-        if (!newKindByPath.has(path)) {
+        const overlapsNewVariant =
+          newKindByPath.has(path) ||
+          newPaths.some((p) => p.startsWith(`${path}.`) || path.startsWith(`${p}.`));
+        if (!overlapsNewVariant) {
           setValue(path, undefined, { shouldDirty: false });
         }
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedVariantIdx, field.variants, getValues, setValue, sentinelPath, commitedVariantLabel],
+    [selectedVariantIdx, field.variants, getValues, setValue, sentinelPath],
   );
 
   const variantLabels = React.useMemo(() => field.variants.map((v) => v.label), [field.variants]);
@@ -419,7 +436,7 @@ function collectSentinelDefaults(
 
 /** Writes `label` at a dot-notation path */
 function setNestedSentinel(result: Record<string, unknown>, path: string, label: string): void {
-  const parts = path.split(".");
+  const parts = [...path.split("."), SENTINEL_SELF_KEY];
   let obj = result;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i]!;

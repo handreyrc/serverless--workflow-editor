@@ -160,7 +160,50 @@ describe("applyDirtyValues", () => {
     const sentinelPaths = new Set(["emit.event.with.data"]);
     const result = applyDirtyValues(original, allValues, dirtyPaths, sentinelPaths);
     expect(result).not.toHaveProperty("emit.event.with.data");
-    expect(result).toEqual({});
+    // Only the switched key goes: the containers around it stay, so the task is still an emit task.
+    expect(result).toEqual({ emit: { event: { with: {} } } });
+  });
+
+  it("keeps the containers around a switched variant that commits no value", () => {
+    const original = { raise: { error: { type: "${ .errorType }" } } };
+    const result = applyDirtyValues(
+      original,
+      { "raise.error.type": undefined },
+      new Set<string>(),
+      new Set(["raise.error.type"]),
+    );
+    expect(result).toEqual({ raise: { error: {} } });
+  });
+
+  it("never removes the key that gives the task its type", () => {
+    const original = { raise: { error: { type: "https://example.com/errors/boom" } } };
+    const result = applyDirtyValues(
+      original,
+      { "raise.error.type": "" },
+      new Set(["raise.error.type"]),
+    );
+    expect(result).toEqual({ raise: {} });
+  });
+
+  it("keeps a nested selectors value when an ancestor path has the change", () => {
+    // Scenario: raise.error held an error name and the user switched it to an inline
+    // definition, so react-hook-form marks the ancestor `raise.error` dirty - its type changed from string to object.
+    // The nested type/title selectors mounted with the switch and are sentinel-dirty too,
+    // but the values beneath them arrived with the ancestor's change and must survive.
+
+    const original = { raise: { error: "notImplemented" } };
+    const allValues = {
+      "raise.error.type": "https://example.com/errors/nope",
+      "raise.error.status": 418,
+    };
+
+    const dirtyPaths = new Set(["raise.error"]);
+    const sentinelPaths = new Set(["raise.error", "raise.error.type", "raise.error.title"]);
+    const result = applyDirtyValues(original, allValues, dirtyPaths, sentinelPaths);
+
+    expect(result).toEqual({
+      raise: { error: { type: "https://example.com/errors/nope", status: 418 } },
+    });
   });
 
   it("does not mutate the original object", () => {
