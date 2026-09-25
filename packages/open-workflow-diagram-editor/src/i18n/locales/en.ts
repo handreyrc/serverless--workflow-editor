@@ -89,7 +89,7 @@ export const en = {
   "sidebar.guard.discard": "Discard",
   "taskList.noTasks": "No child tasks defined.",
   "taskList.label": "Task list",
-  "taskList.editHint": "Edit tasks in the diagram",
+  "taskList.editHint": "Edit tasks by selecting them from the diagram",
 } as const;
 
 export type TranslationKeys = keyof typeof en;
