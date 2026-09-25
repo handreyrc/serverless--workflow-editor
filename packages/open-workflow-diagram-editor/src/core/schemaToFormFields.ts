@@ -58,6 +58,12 @@ export interface StringField extends FieldBase {
   multiline: boolean;
   /** The runtime-expression pattern — field value must match `${...}` syntax */
   isRuntimeExpression: boolean;
+  /**
+   * True when this literal/URI variant coexists in a oneOf with an expression
+   * variant. Used to guard against showing stale expression data in the literal
+   * field after a variant switch.
+   */
+  hasExpressionSibling?: boolean;
   /** Optional placeholder hint, e.g. "https://example.com/api/{id}" */
   placeholder?: string | undefined;
 }
@@ -1156,12 +1162,21 @@ function buildOneOfVariants(
   // options in the form rather than collapsed to a single anonymous string input.
   const allStrings = resolvedList.every((item) => item.kind === "string");
   if (allStrings && resolvedList.length > 1) {
-    return resolvedList.map((item) => ({
-      label: item.label,
-      fields: item.fields,
-      matchesData: item.matchesData,
-      constWrites: {},
-    }));
+    const hasExpVariant = resolvedList.some((item) =>
+      isRuntimeExpressionSchema(item.c, item.resolved),
+    );
+    return resolvedList.map((item) => {
+      if (hasExpVariant && !isRuntimeExpressionSchema(item.c, item.resolved)) {
+        const f = item.fields[0];
+        if (f?.kind === "string") f.hasExpressionSibling = true;
+      }
+      return {
+        label: item.label,
+        fields: item.fields,
+        matchesData: item.matchesData,
+        constWrites: {},
+      };
+    });
   }
 
   const collapsed: OneOfVariant[] = [];
@@ -1268,6 +1283,19 @@ function buildOneOfVariants(
       matchesData: buildStringMatchesData(preds),
       constWrites: {},
     });
+  }
+
+  // Mark literal string fields whose sibling variants include an expression variant.
+  const hasExpVariantInCollapsed = collapsed.some(
+    (v) => v.fields[0]?.kind === "string" && (v.fields[0] as StringField).isRuntimeExpression,
+  );
+  if (hasExpVariantInCollapsed) {
+    for (const v of collapsed) {
+      const f = v.fields[0];
+      if (f?.kind === "string" && !(f as StringField).isRuntimeExpression) {
+        (f as StringField).hasExpressionSibling = true;
+      }
+    }
   }
 
   return collapsed;

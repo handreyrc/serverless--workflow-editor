@@ -36,6 +36,7 @@ const uriField: StringField = {
   required: true,
   multiline: false,
   isRuntimeExpression: false,
+  hasExpressionSibling: true,
   placeholder: "https://example.com/api/{id}",
 };
 
@@ -184,6 +185,20 @@ describe("StringControl — kind-boundary clear on variant switch", () => {
     const defaults = { emit: { event: { with: { source: committedValue } } } };
     render(<PlainWrapper field={field} defaultValues={defaults} />);
     expect(getInput().value).toBe(committedValue);
+  });
+
+  it("plain string field (isRuntimeExpression=false) shows expression-like value as-is", () => {
+    const plainField: StringField = {
+      kind: "string",
+      path: "with.authentication.bearer.token",
+      label: "token",
+      required: true,
+      multiline: false,
+      isRuntimeExpression: false,
+    };
+    const defaults = { with: { authentication: { bearer: { token: "${ .token }" } } } };
+    render(<PlainWrapper field={plainField} defaultValues={defaults} />);
+    expect(getInput().value).toBe("${ .token }");
   });
 
   it("shows restored URI snapshot when switching back to URI (snapshot restore via setValue)", async () => {

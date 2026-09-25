@@ -52,10 +52,17 @@ function SingleLineStringControl({ field, id }: StringControlProps) {
         const live = rhfField.value as unknown;
         let inputValue = typeof live === "string" ? live : "";
 
-        if (typeof live === "string" && !fieldState.isDirty) {
-          const isRuntimeExpression = /^\s*\$\{.+\}\s*$/.test(live);
-
-          if (isRuntimeExpression !== field.isRuntimeExpression) {
+        // Blank stale cross-variant data: only applies when this field is part of
+        // a oneOf that also has an expression variant (hasExpressionSibling) or is
+        // itself expression-only. Plain string fields without an expression sibling
+        // show any value as-is.
+        if (
+          (field.isRuntimeExpression || field.hasExpressionSibling) &&
+          typeof live === "string" &&
+          !fieldState.isDirty
+        ) {
+          const liveIsExpression = /^\s*\$\{.+\}\s*$/.test(live);
+          if (liveIsExpression !== field.isRuntimeExpression) {
             inputValue = "";
           }
         }
