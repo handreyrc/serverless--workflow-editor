@@ -52,6 +52,22 @@ function collectOneOfFields(field: FormFieldDescriptor): OneOfField[] {
   return [];
 }
 
+/** Recursively collects all leaf/intermediate dot-notation paths from a field list. */
+function collectVariantFieldPaths(fields: FormFieldDescriptor[]): string[] {
+  const paths: string[] = [];
+  for (const field of fields) {
+    paths.push(field.path);
+    if (field.kind === "object") {
+      paths.push(...collectVariantFieldPaths(field.children));
+    } else if (field.kind === "one-of") {
+      for (const variant of field.variants) {
+        paths.push(...collectVariantFieldPaths(variant.fields));
+      }
+    }
+  }
+  return paths;
+}
+
 /**
  * Counts dirty paths that represent real model changes, excluding phantom
  * entries created by variant switching.  A path whose current value AND
@@ -160,11 +176,13 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
       }
     }
 
-    // Build constWrites: find each sentinel-dirty path's selected variant and
-    // collect its const discriminator properties.
+    // Build constWrites and stalePaths: find each sentinel-dirty path's selected
+    // variant, collect its const discriminator properties, and compute the paths
+    // that are exclusive to the non-selected variants so they can be removed.
     const nodeType = node.type ?? "";
     const allFields = nodeType ? getFormFieldsForNodeType(nodeType) : [];
     const sentinelConstWrites = new Map<string, Record<string, unknown>>();
+    const sentinelStalePaths = new Map<string, string[]>();
     for (const sentinelPath of sentinelPaths) {
       const selectedLabel = flatValues[`${SENTINEL_PREFIX}${sentinelPath}${SENTINEL_SUFFIX}`] as
         | string
@@ -176,6 +194,18 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
       if (variant && Object.keys(variant.constWrites).length > 0) {
         sentinelConstWrites.set(sentinelPath, variant.constWrites);
       }
+      // Compute paths exclusive to the non-selected variants (i.e. absent from
+      // the selected variant's field tree). These need to be wiped from the model.
+      if (variant) {
+        const selectedPaths = new Set(collectVariantFieldPaths(variant.fields));
+        const stalePaths = oneOfField.variants
+          .filter((v) => v !== variant)
+          .flatMap((v) => collectVariantFieldPaths(v.fields))
+          .filter((p) => !selectedPaths.has(p));
+        if (stalePaths.length > 0) {
+          sentinelStalePaths.set(sentinelPath, stalePaths);
+        }
+      }
     }
 
     const updated = applyDirtyValues(
@@ -184,6 +214,7 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
       flatDirty,
       sentinelPaths,
       sentinelConstWrites,
+      sentinelStalePaths,
     ) as Specification.Task;
     const updatedModel = updateTask(model, node.id, updated);
     commitWorkflow(updatedModel);

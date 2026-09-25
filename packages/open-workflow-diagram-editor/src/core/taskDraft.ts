@@ -68,6 +68,10 @@ export function applyDirtyValues(
   // For each sentinel-dirty path, the constWrites of the selected variant
   // (hidden discriminator properties that must be written into the model).
   sentinelConstWrites: Map<string, Record<string, unknown>> = new Map(),
+
+  // For each sentinel-dirty path, the model paths that belong exclusively to
+  // the previously active variant(s) and must be removed from the result.
+  sentinelStalePaths: Map<string, string[]> = new Map(),
 ): Record<string, unknown> {
   // Deep clone the original so we never mutate the store value.
   const result = deepClone(original);
@@ -88,16 +92,35 @@ export function applyDirtyValues(
     }
   }
 
-  // For sentinel paths: write const discriminators and delete the model path unless
-  // a dirty field (at, under, or above the path) supplied a value.
+  // For sentinel paths: write const discriminators, delete stale variant paths,
+  // and delete the model path itself unless a dirty field supplied a value.
   for (const sentinelPath of sentinelPaths) {
     const prefix = sentinelPath + ".";
+    const baseParts = sentinelPath === "__root__" ? [] : sentinelPath.split(".");
 
     const constWrites = sentinelConstWrites.get(sentinelPath);
     if (constWrites && Object.keys(constWrites).length > 0) {
-      const baseParts = sentinelPath === "__root__" ? [] : sentinelPath.split(".");
       for (const [constKey, constVal] of Object.entries(constWrites)) {
         setPath(result, [...baseParts, constKey], constVal);
+      }
+    }
+
+    // Remove fields that belong exclusively to the old variant(s) so they do
+    // not bleed into the newly selected variant's representation.
+    // Exclude any path that is also a constWrite key for this sentinel — those
+    // were just set above and must not be clobbered (e.g. the `call` field is a
+    // plain string in some variants but a const discriminator in others).
+    const constWriteAbsolutePaths = constWrites
+      ? new Set(Object.keys(constWrites).map((k) => [...baseParts, k].join(".")))
+      : undefined;
+    const stalePaths = sentinelStalePaths.get(sentinelPath);
+    if (stalePaths) {
+      for (const stalePath of stalePaths) {
+        // Only delete when the user has not explicitly set the path in this edit
+        // and the path is not occupied by a constWrite for this sentinel.
+        if (!isDirtyPath(stalePath, dirtyPaths) && !constWriteAbsolutePaths?.has(stalePath)) {
+          deletePath(result, stalePath.split("."), { prune: true, protectedKey: taskTypeKey });
+        }
       }
     }
 

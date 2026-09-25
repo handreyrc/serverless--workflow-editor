@@ -60,15 +60,21 @@ export function flattenTask(value: unknown, prefix = ""): Record<string, unknown
 
 function setNestedPath(obj: Record<string, unknown>, dotPath: string, value: unknown): void {
   const parts = dotPath.split(".");
+  if (
+    parts.some((part) => part === "__proto__" || part === "prototype" || part === "constructor")
+  ) {
+    return;
+  }
   let current = obj;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i]!;
     if (
-      current[part] === undefined ||
+      !Object.prototype.hasOwnProperty.call(current, part) ||
       current[part] === null ||
-      typeof current[part] !== "object"
+      typeof current[part] !== "object" ||
+      Array.isArray(current[part])
     ) {
-      current[part] = {};
+      current[part] = Object.create(null) as Record<string, unknown>;
     }
     current = current[part] as Record<string, unknown>;
   }
@@ -161,8 +167,11 @@ export function TaskForm({ nodeType, task, nodeId, taskReference }: TaskFormProp
     const liveValues = form.getValues() as Record<string, unknown>;
     const liveOneof = liveValues.__oneof__ as Record<string, unknown> | undefined;
     if (liveOneof) {
+      const suffix = ".__self__";
       for (const [k, v] of Object.entries(flattenTask(liveOneof))) {
-        if (typeof v === "string") liveSentinels[k] = v;
+        if (typeof v === "string" && k.endsWith(suffix)) {
+          liveSentinels[k.slice(0, -suffix.length)] = v;
+        }
       }
     }
     const sentinelDefaults = computeSentinelDefaults(

@@ -437,9 +437,8 @@ export function schemaToFormFields(
     }
 
     // ── Skip const-locked discriminator properties ─────────────────────────
-    // Properties with a `const` value or a `not` constraint are schema
-    // discriminators, not user-editable fields.
-    if (resolved.const !== undefined || isPlainObject(resolved.not)) {
+    // Const-locked discriminator properties are not user-editable.
+    if (resolved.const !== undefined) {
       continue;
     }
 
