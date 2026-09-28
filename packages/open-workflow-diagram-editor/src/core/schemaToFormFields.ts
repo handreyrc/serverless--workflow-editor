@@ -169,7 +169,7 @@ export interface OneOfVariant {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const RUNTIME_EXPRESSION_PATTERN = /^\s*\$\{.+\}\s*$/;
+export const RUNTIME_EXPRESSION_PATTERN = /^\s*\$\{.+\}\s*$/;
 
 /** JSON Schema primitive type names that are too generic to use as variant labels. */
 const GENERIC_TYPE_LABELS = new Set(["string", "object", "number", "integer", "boolean", "array"]);
