@@ -20,7 +20,7 @@ import type { BaseNodeData } from "@/react-flow/nodes/Nodes";
 import { useI18n } from "@openworkflowspec/i18n";
 import { SidebarFooter } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { useFormState, type Control } from "react-hook-form";
+import { useFormState } from "react-hook-form";
 import { updateTask } from "@/core/workflowEditing";
 import { applyDirtyValues } from "@/core/taskDraft";
 import { flattenTask, padRemovedPaths } from "@/side-panel/forms/TaskForm";
@@ -77,12 +77,10 @@ function collectVariantFieldPaths(fields: FormFieldDescriptor[]): string[] {
 function filterPhantomDirty(
   dirtyPaths: string[],
   formValues: Record<string, unknown>,
-  control: Control<Record<string, unknown>>,
+  defaultValues: Record<string, unknown> | undefined,
 ): number {
   const flatValues = flattenTask(formValues);
-  const flatDefaults = flattenTask(
-    (control as unknown as { _defaultValues: Record<string, unknown> })._defaultValues,
-  );
+  const flatDefaults = flattenTask(defaultValues ?? {});
   return dirtyPaths.filter((p) => {
     const v = flatValues[p];
     const d = flatDefaults[p];
@@ -136,7 +134,7 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
     [],
   );
 
-  const { dirtyFields, isDirty } = useFormState({ control: form.control });
+  const { dirtyFields, isDirty, defaultValues } = useFormState({ control: form.control });
   const task = node.data.task;
   const showApplied = appliedNodeId === node.id;
 
@@ -149,7 +147,11 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
   const flatDirtyKeys = Object.keys(flattenTask(dirtyFields as Record<string, unknown>)).filter(
     (p) => !p.startsWith(SENTINEL_PREFIX),
   );
-  const changedCount = filterPhantomDirty(flatDirtyKeys, form.getValues(), form.control);
+  const changedCount = filterPhantomDirty(
+    flatDirtyKeys,
+    form.getValues(),
+    defaultValues as Record<string, unknown> | undefined,
+  );
 
   const handleCancel = () => {
     const nodeType = node.type ?? "";

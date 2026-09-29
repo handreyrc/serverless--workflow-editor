@@ -108,12 +108,6 @@ export function StringListField({ field }: StringListFieldProps) {
     }
   }, [defaultValues, field.path]);
 
-  // Keep a stable ref so callbacks always read the latest snapshot.
-  const rowsRef = React.useRef(rows);
-  React.useEffect(() => {
-    rowsRef.current = rows;
-  });
-
   // ── Mutation helpers ───────────────────────────────────────────────────────
 
   const commitToForm = React.useCallback(

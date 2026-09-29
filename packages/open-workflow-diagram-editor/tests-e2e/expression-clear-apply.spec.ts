@@ -32,6 +32,50 @@ async function waitForSidebar(page: Page) {
   await expect(sidebar).toHaveAttribute("data-state", "expanded");
 }
 
+async function getContentYaml(page: Page): Promise<string> {
+  await page.getByRole("button", { name: "Get Content" }).click();
+  const textarea = page.locator("textarea[readonly]");
+  await expect(textarea).toBeVisible();
+  const content = await textarea.inputValue();
+  await page.getByRole("button", { name: "Close" }).click();
+  return content;
+}
+
+test("switching CallHTTP→CallMCP without selecting method clears the old method from the model", async ({
+  page,
+}) => {
+  await page.goto("/iframe.html?id=features-undo-redo--undo-redo");
+  await waitForDiagram(page);
+
+  await clickNode(page, "call-node-/do/getPet");
+  await waitForSidebar(page);
+
+  const form = page.locator(".dec-task-form");
+  await expect(form).toBeVisible();
+
+  // Switch from CallHTTP to CallMCP
+  const rootComboInput = form.locator('[data-slot="combobox-input"]').first();
+  await rootComboInput.click();
+  const mcpOption = page.getByRole("option", { name: "CallMCP" });
+  await expect(mcpOption).toBeVisible();
+  await mcpOption.click();
+
+  // Do NOT select a method — leave it empty
+  const applyButton = page.getByRole("button", { name: /apply/i });
+  await expect(applyButton).toBeEnabled();
+  await applyButton.click();
+  await page.waitForTimeout(500);
+
+  // Deselect the node so getContent reflects the committed model
+  const container = page.getByTestId("diagram-container");
+  await container.click({ position: { x: 50, y: 50 } });
+  await page.waitForTimeout(300);
+
+  const yaml = await getContentYaml(page);
+  expect(yaml).toContain("call: mcp");
+  expect(yaml).not.toMatch(/method:\s*get/i);
+});
+
 test("clearing an expression field and clicking Apply does not restore the old value", async ({
   page,
 }) => {

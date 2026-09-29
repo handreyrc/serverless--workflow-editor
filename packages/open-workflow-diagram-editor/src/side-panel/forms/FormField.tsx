@@ -284,9 +284,7 @@ function OneOfFieldRow({ field }: { field: OneOfField }) {
         for (const [path, newKind] of newKindByPath) {
           const currentKind = currentKindByPath.get(path);
           if (currentKind !== newKind) {
-            // Use "" not undefined: RHF won't overwrite a Controller's held value
-            // with undefined, leaving stale data from the previous variant.
-            setValue(path, "" as never, { shouldDirty: false });
+            setValue(path, "" as never, { shouldDirty: true });
           }
         }
       }
@@ -393,6 +391,8 @@ function collectLeafKinds(fields: FormFieldDescriptor[]): Map<string, string> {
       }
     } else if (f.kind === "string") {
       result.set(f.path, f.isRuntimeExpression ? "string:re" : "string:plain");
+    } else if (f.kind === "enum") {
+      result.set(f.path, `enum:${[...f.options].sort().join(",")}`);
     } else {
       result.set(f.path, f.kind);
     }

@@ -60,7 +60,6 @@ export function McpProtocolVersionField({ field, id }: McpProtocolVersionFieldPr
             onBlur={rhfField.onBlur}
             name={rhfField.name}
             pattern={MCP_PROTOCOL_VERSION_PATTERN}
-            title={t("sidebar.mcpProtocolVersion.title")}
             disabled={isReadOnly}
             readOnly={isReadOnly}
             placeholder={t("sidebar.mcpProtocolVersion.placeholder")}

@@ -59,8 +59,6 @@ export const en = {
   "toast.download.error": "Download failed",
   "sidebar.duration.title": "Enter an ISO 8601 duration, for example PT30S or PT5M",
   "sidebar.duration.placeholder": "PT30S",
-  "sidebar.mcpProtocolVersion.title":
-    "Enter an MCP protocol version date, for example 2025-06-18 or 2024-11-05",
   "sidebar.mcpProtocolVersion.placeholder": "2025-06-18",
   "sidebar.then.flowDirectiveGroup": "Flow directive",
   "sidebar.then.taskGroup": "Task",
