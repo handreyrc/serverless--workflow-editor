@@ -90,7 +90,7 @@ function renderDiagram({
   content?: string;
   locale?: string;
 } = {}) {
- return renderWithEditorProviders(<Diagram />, { content, isReadOnly, locale });
+  return renderWithEditorProviders(<Diagram />, { content, isReadOnly, locale });
 }
 
 describe("Diagram Component", () => {
@@ -185,7 +185,7 @@ describe("Diagram Component", () => {
 
     // Verify that ReactFlow was called with nodesDraggable={false} and nodesConnectable={true} and panOnDrag={false}
     const mockReactFlow = vi.mocked(ReactFlow);
-    const reactFlowProps = mockReactFlow.mock.calls[mockReactFlow.mock.calls.length - 1][0];
+    const reactFlowProps = mockReactFlow.mock.calls[mockReactFlow.mock.calls.length - 1]![0];
     expect(reactFlowProps.nodesDraggable).toBe(false);
     expect(reactFlowProps.nodesConnectable).toBe(false);
     expect(reactFlowProps.panOnDrag).toBe(false);
@@ -348,138 +348,135 @@ describe("Diagram Component", () => {
 
 describe("Diagram navigate away guard", () => {
   function SelectionProbe() {
-  const { selectedNodeId, nodes } = useDiagramEditorContext();
-  return (
-    <>
-      <span data-testid="selected-node">{String(selectedNodeId)}</span>
-      <span data-testid="canvas-selection">
-        {String(nodes.find((node) => node.selected)?.id ?? null)}
-      </span>
-    </>
-  );
+    const { selectedNodeId, nodes } = useDiagramEditorContext();
+    return (
+      <>
+        <span data-testid="selected-node">{String(selectedNodeId)}</span>
+        <span data-testid="canvas-selection">
+          {String(nodes.find((node) => node.selected)?.id ?? null)}
+        </span>
+      </>
+    );
   }
- // Two real tasks from the fixture, so the ids are ones the editor actually produces.
- const NODE_ID = EDITABLE_TASK_NODE_ID;
- const OTHER_NODE_ID = "/do/openIssue";
+  // Two real tasks from the fixture, so the ids are ones the editor actually produces.
+  const NODE_ID = EDITABLE_TASK_NODE_ID;
+  const OTHER_NODE_ID = "/do/openIssue";
 
- let applyAutoLayoutSpy: ReturnType<typeof vi.spyOn>;
+  let applyAutoLayoutSpy: ReturnType<typeof vi.spyOn>;
 
- beforeEach(() => {
-   // Real nodes, not an empty array: the guard puts the canvas selection back when it
-   // blocks, and that is only observable if there are nodes to carry a `selected` flag.
-   applyAutoLayoutSpy = vi.spyOn(autoLayoutModule, "applyAutoLayout").mockResolvedValue({
-     nodes: [
-       { id: NODE_ID, position: { x: 0, y: 0 }, data: {} },
-       { id: OTHER_NODE_ID, position: { x: 0, y: 100 }, data: {} },
-     ],
-     edges: [],
-   });
-   vi.mocked(ReactFlow).mockClear();
- });
+  beforeEach(() => {
+    // Real nodes, not an empty array: the guard puts the canvas selection back when it
+    // blocks, and that is only observable if there are nodes to carry a `selected` flag.
+    applyAutoLayoutSpy = vi.spyOn(autoLayoutModule, "applyAutoLayout").mockResolvedValue({
+      nodes: [
+        { id: NODE_ID, position: { x: 0, y: 0 }, data: {} },
+        { id: OTHER_NODE_ID, position: { x: 0, y: 100 }, data: {} },
+      ],
+      edges: [],
+    });
+    vi.mocked(ReactFlow).mockClear();
+  });
 
- afterEach(() => {
-   vi.restoreAllMocks();
- });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
- const renderGuardedDiagram = () => {
-   const { node } = editableTaskNode();
+  const renderGuardedDiagram = () => {
+    const { node } = editableTaskNode();
 
-   renderWithEditorProviders(
-     <>
-       <Diagram />
-       <TaskForm
-         nodeType={node.type!}
-         task={node.data.task!}
-         nodeId={NODE_ID}
-         taskReference={node.data.taskReference}
-       />
-       <NavigationGuardDialog />
-       <SelectionProbe />
-     </>,
-     { content: JSON.stringify(MANAGING_GITHUB_ISSUES_WORKFLOW), isReadOnly: false },
-   );
+    renderWithEditorProviders(
+      <>
+        <Diagram />
+        <TaskForm
+          nodeType={node.type!}
+          task={node.data.task!}
+          nodeId={NODE_ID}
+          taskReference={node.data.taskReference}
+        />
+        <NavigationGuardDialog />
+        <SelectionProbe />
+      </>,
+      { content: JSON.stringify(MANAGING_GITHUB_ISSUES_WORKFLOW), isReadOnly: false },
+    );
 
-   return { user: userEvent.setup() };
- };
+    return { user: userEvent.setup() };
+  };
 
- /**
-  * Mirrors what React Flow actually does on a click: it moves its own selection first
-  * (onNodesChange) and only then reports it (onSelectionChange). Firing only the second
-  * would hide the very thing the guard has to undo.
-  */
- const selectNode = async (id: string | null) => {
-   const props = vi.mocked(ReactFlow).mock.calls.at(-1)![0];
-   act(() => {
-     props.onNodesChange?.(
-       [NODE_ID, OTHER_NODE_ID].map((nodeId) => ({
-         type: "select" as const,
-         id: nodeId,
-         selected: nodeId === id,
-       })),
-     );
-     props.onSelectionChange?.({ nodes: id === null ? [] : [{ id } as RF.Node], edges: [] });
-   });
-   await act(async () => {
-     await new Promise((resolve) => setTimeout(resolve, 0));
-   });
- };
+  /**
+   * Mirrors what React Flow actually does on a click: it moves its own selection first
+   * (onNodesChange) and only then reports it (onSelectionChange). Firing only the second
+   * would hide the very thing the guard has to undo.
+   */
+  const selectNode = async (id: string | null) => {
+    const props = vi.mocked(ReactFlow).mock.calls.at(-1)![0];
+    act(() => {
+      props.onNodesChange?.(
+        [NODE_ID, OTHER_NODE_ID].map((nodeId) => ({
+          type: "select" as const,
+          id: nodeId,
+          selected: nodeId === id,
+        })),
+      );
+      props.onSelectionChange?.({ nodes: id === null ? [] : [{ id } as RF.Node], edges: [] });
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  };
 
- const waitForCanvas = () =>
-   waitFor(() => {
-     expect(screen.getByTestId("react-flow-canvas")).toBeInTheDocument();
-     expect(applyAutoLayoutSpy).toHaveBeenCalled();
-   });
+  const waitForCanvas = () =>
+    waitFor(() => {
+      expect(screen.getByTestId("react-flow-canvas")).toBeInTheDocument();
+      expect(applyAutoLayoutSpy).toHaveBeenCalled();
+    });
 
- it("does not render the dialog guard when a node is selected and draft is cleans", async () => {
-   renderGuardedDiagram();
-   await waitForCanvas();
+  it("does not render the dialog guard when a node is selected and draft is cleans", async () => {
+    renderGuardedDiagram();
+    await waitForCanvas();
 
-   await selectNode(NODE_ID);
+    await selectNode(NODE_ID);
 
-   expect(screen.getByTestId("selected-node")).toHaveTextContent(NODE_ID);
-   expect(screen.getByTestId("canvas-selection")).toHaveTextContent(NODE_ID);
-   expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
- });
+    expect(screen.getByTestId("selected-node")).toHaveTextContent(NODE_ID);
+    expect(screen.getByTestId("canvas-selection")).toHaveTextContent(NODE_ID);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
 
- it("keeps selection on the node being edited and renders the dialog guard (draft is dirty)", async () => {
-   const { user } = renderGuardedDiagram();
-   await waitForCanvas();
-   await selectNode(NODE_ID);
-   await dirtyTaskDraft(user);
+  it("keeps selection on the node being edited and renders the dialog guard (draft is dirty)", async () => {
+    const { user } = renderGuardedDiagram();
+    await waitForCanvas();
+    await selectNode(NODE_ID);
+    await dirtyTaskDraft(user);
 
-   await selectNode(OTHER_NODE_ID);
+    await selectNode(OTHER_NODE_ID);
 
-   expect(screen.getByTestId("selected-node")).toHaveTextContent(NODE_ID);
-   // The canvas must be put back too, or it highlights a node the panel is not showing.
-   expect(screen.getByTestId("canvas-selection")).toHaveTextContent(NODE_ID);
-   expect(screen.getByRole("alertdialog")).toBeInTheDocument();
- });
+    expect(screen.getByTestId("selected-node")).toHaveTextContent(NODE_ID);
+    // The canvas must be put back too, or it highlights a node the panel is not showing.
+    expect(screen.getByTestId("canvas-selection")).toHaveTextContent(NODE_ID);
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  });
 
- it("selects to the other node when discard is confirmed", async () => {
-   const { user } = renderGuardedDiagram();
-   await waitForCanvas();
-   await selectNode(NODE_ID);
-   await dirtyTaskDraft(user);
-   await selectNode(OTHER_NODE_ID);
+  it("selects to the other node when discard is confirmed", async () => {
+    const { user } = renderGuardedDiagram();
+    await waitForCanvas();
+    await selectNode(NODE_ID);
+    await dirtyTaskDraft(user);
+    await selectNode(OTHER_NODE_ID);
 
-   await user.click(screen.getByRole("button", { name: en["sidebar.guard.discard"] }));
+    await user.click(screen.getByRole("button", { name: en["sidebar.guard.discard"] }));
 
-   expect(screen.getByTestId("selected-node")).toHaveTextContent(OTHER_NODE_ID);
-   expect(screen.getByTestId("canvas-selection")).toHaveTextContent(OTHER_NODE_ID);
- });
+    expect(screen.getByTestId("selected-node")).toHaveTextContent(OTHER_NODE_ID);
+    expect(screen.getByTestId("canvas-selection")).toHaveTextContent(OTHER_NODE_ID);
+  });
 
- it("renders dialog guard when deselecting to the empty canvas as well when draft is dirty", async () => {
-   const { user } = renderGuardedDiagram();
-   await waitForCanvas();
-   await selectNode(NODE_ID);
-   await dirtyTaskDraft(user);
+  it("renders dialog guard when deselecting to the empty canvas as well when draft is dirty", async () => {
+    const { user } = renderGuardedDiagram();
+    await waitForCanvas();
+    await selectNode(NODE_ID);
+    await dirtyTaskDraft(user);
 
-   await selectNode(null);
+    await selectNode(null);
 
-   expect(screen.getByTestId("selected-node")).toHaveTextContent(NODE_ID);
-   expect(screen.getByRole("alertdialog")).toBeInTheDocument();
- });
+    expect(screen.getByTestId("selected-node")).toHaveTextContent(NODE_ID);
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  });
 });
-
-
-

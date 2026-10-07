@@ -14,9 +14,29 @@
  * limitations under the License.
  */
 
+import * as React from "react";
 import type { Preview, Decorator } from "@storybook/react-vite";
+import { useArgs, useGlobals } from "storybook/preview-api";
 
 const withColorMode: Decorator = (Story) => {
+  const [{ colorMode: argColorMode }, updateArgs] = useArgs();
+  const [{ colorMode: globalColorMode }, updateGlobals] = useGlobals();
+
+  const lastArgColorMode = React.useRef(argColorMode);
+  const lastGlobalColorMode = React.useRef(globalColorMode);
+
+  React.useEffect(() => {
+    const argsChanged = argColorMode !== lastArgColorMode.current;
+    const globalChanged = globalColorMode !== lastGlobalColorMode.current;
+
+    if (argsChanged) {
+      updateGlobals({ colorMode: argColorMode });
+    } else if (globalChanged) {
+      updateArgs({ colorMode: globalColorMode });
+    }
+    lastArgColorMode.current = argColorMode;
+    lastGlobalColorMode.current = globalColorMode;
+  }, [argColorMode, globalColorMode, updateArgs, updateGlobals]);
   return <Story />;
 };
 

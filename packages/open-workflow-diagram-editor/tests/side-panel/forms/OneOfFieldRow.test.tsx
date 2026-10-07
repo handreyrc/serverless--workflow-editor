@@ -44,7 +44,10 @@ import { FormProvider, useForm, useFormState } from "react-hook-form";
 import { I18nProvider } from "@openworkflowspec/i18n";
 import { en } from "../../../src/i18n/locales/en";
 import { StructuredValueField } from "../../../src/side-panel/forms/customFields/StructuredValueField";
-import { TaskFormContext } from "../../../src/side-panel/forms/taskFormContext";
+import {
+  TaskFormContext,
+  type TaskFormContextType,
+} from "../../../src/side-panel/forms/taskFormContext";
 import type { JsonField, OneOfField, StringField } from "../../../src/core/schemaToFormFields";
 
 // ---------------------------------------------------------------------------
@@ -59,7 +62,11 @@ const dataField: JsonField = {
   required: false,
 };
 
-const taskFormContextValue = { isReadOnly: false, siblingTaskNames: [], taskData: {} } as const;
+const taskFormContextValue: TaskFormContextType = {
+  isReadOnly: false,
+  siblingTaskNames: [],
+  taskData: {},
+};
 
 function getTextarea() {
   return screen.getByRole("textbox") as HTMLTextAreaElement;
@@ -350,11 +357,13 @@ function makeSourceOneOfField(): OneOfField {
         label: "URI",
         fields: [uriLeaf],
         matchesData: (d) => typeof d === "string" && !/^\s*\$\{.+\}\s*$/.test(d),
+        constWrites: {},
       },
       {
         label: "Expression",
         fields: [exprLeaf],
         matchesData: (d) => typeof d === "string" && /^\s*\$\{.+\}\s*$/.test(d),
+        constWrites: {},
       },
     ],
   };

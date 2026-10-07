@@ -27,7 +27,6 @@ import { useResolvedColorMode } from "../hooks/useResolvedColorMode";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { SidePanel } from "@/side-panel/SidePanel";
 import { DiagramEditorErrorBoundary } from "./error-pages/DiagramEditorErrorBoundary";
-import { Toaster } from "@/components/ui/sonner";
 import { EditSessionProvider } from "@/side-panel/EditSession";
 
 /**
@@ -151,10 +150,10 @@ const DiagramEditorBody = ({
         >
           <SidebarProvider defaultOpen={false}>
             <EditSessionProvider>
-            <div className="dec-diagram-content">
-              <DiagramEditorContent diagramDivRef={diagramDivRef} colorMode={resolvedColorMode} />
-            </div>
-            <SidePanel />
+              <div className="dec-diagram-content">
+                <DiagramEditorContent diagramDivRef={diagramDivRef} colorMode={resolvedColorMode} />
+              </div>
+              <SidePanel />
             </EditSessionProvider>
           </SidebarProvider>
         </DiagramEditorContextProvider>
@@ -187,7 +186,6 @@ export const DiagramEditor = React.forwardRef<DiagramEditorRef, DiagramEditorPro
             editorRef={ref}
           />
         </I18nProvider>
-        <Toaster theme={resolvedColorMode} />
       </div>
     );
   },

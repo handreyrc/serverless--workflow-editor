@@ -22,7 +22,10 @@ import { FormProvider, useForm, type UseFormReturn } from "react-hook-form";
 import { I18nProvider } from "@openworkflowspec/i18n";
 import { en } from "../../../../src/i18n/locales/en";
 import { StringControl } from "../../../../src/side-panel/forms/customFields/StringControl";
-import { TaskFormContext } from "../../../../src/side-panel/forms/taskFormContext";
+import {
+  TaskFormContext,
+  type TaskFormContextType,
+} from "../../../../src/side-panel/forms/taskFormContext";
 import type { StringField } from "../../../../src/core/schemaToFormFields";
 
 // ---------------------------------------------------------------------------
@@ -50,7 +53,11 @@ const exprField: StringField = {
   placeholder: "${...}",
 };
 
-const taskFormContextValue = { isReadOnly: false, siblingTaskNames: [], taskData: {} } as const;
+const taskFormContextValue: TaskFormContextType = {
+  isReadOnly: false,
+  siblingTaskNames: [],
+  taskData: {},
+};
 
 function getInput() {
   return screen.getByRole("textbox") as HTMLInputElement;

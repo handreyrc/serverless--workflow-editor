@@ -13,23 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { createJsonLanguageServicePlugins } from "@openworkflowspec/language-service";
+import { createSimpleWorkerLanguageService } from "@volar/monaco/worker";
+import { initialize } from "monaco-editor/editor/editor.worker.js";
+import { URI } from "vscode-uri";
 
-import { DetailField } from "../../src/core";
-
-export const scalarField = (
-  label: string,
-  value: string | number | boolean,
-  segments: string[] = [label],
-): DetailField => ({ label, kind: "scalar", value, segments });
-
-export const arrayField = (
-  label: string,
-  count: number,
-  segments: string[] = [label],
-): DetailField => ({ label, kind: "array", count, segments });
-
-export const objectField = (label: string, segments: string[] = [label]): DetailField => ({
-  label,
-  kind: "object",
-  segments,
-});
+initialize((ctx) =>
+  createSimpleWorkerLanguageService({
+    workerContext: ctx,
+    env: {
+      workspaceFolders: [URI.parse("file:///")],
+    },
+    languagePlugins: [
+      {
+        getLanguageId: () => "json",
+      },
+    ],
+    languageServicePlugins: createJsonLanguageServicePlugins(),
+  }),
+);

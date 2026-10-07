@@ -23,12 +23,17 @@ export default defineConfig({
     emptyOutDir: false,
     sourcemap: true,
     lib: {
-      entry: "src/index.ts",
-      fileName: (format) => (format === "es" ? "index.js" : `index.${format}.js`),
+      entry: {
+        index: "src/index.ts",
+        worker: "src/worker/language.worker.ts",
+      },
       formats: ["es"],
     },
     rollupOptions: {
       external: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
+      output: {
+        entryFileNames: "[name].js",
+      },
     },
   },
 });

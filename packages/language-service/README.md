@@ -22,14 +22,40 @@ The package provides the common infrastructure for Open Workflow language featur
 
 ## Architecture
 
-Volar-specific code is isolated under `src/volar/`. Imports from `@volar/*` outside this directory are prevented by Oxlint.
+Volar-specific code is isolated under `src/volar/`. Imports from `@volar/*` and `volar-service-*` outside this directory are prevented by Oxlint.
 
 ```text
 src/
-├── index.ts
-└── volar/
-    └── index.ts
+├── samples/               (OWS sample documents)
+├── utils.ts               (shared OWS utilities)
+└── volar/                 (Volar adapters)
 ```
+
+## API
+
+### `createJsonLanguageServicePlugins()`
+
+Creates the default set of Volar `LanguageServicePlugin`s for Open Workflow JSON support.
+
+It combines the schema, completion, and CodeLens plugins provided by this package.
+
+```ts
+import { createJsonLanguageServicePlugins } from "@openworkflowspec/language-service";
+
+const plugins = createJsonLanguageServicePlugins();
+```
+
+### `createJsonSchemaLanguageServicePlugin()`
+
+Creates the JSON language service plugin based on `volar-service-json` and the Open Workflow schema.
+
+### `createJsonCompletionsPlugin()`
+
+Creates the Open Workflow-specific JSON completion plugin.
+
+### `createJsonCodeLensesPlugin()`
+
+Creates the Open Workflow JSON CodeLens plugin.
 
 ## Development
 

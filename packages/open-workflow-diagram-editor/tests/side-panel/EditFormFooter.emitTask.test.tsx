@@ -137,7 +137,7 @@ function renderExprEmitFooter() {
 }
 
 /** Simulate OneOfFieldRow.handleVariantChange for Data → Expression. */
-async function switchDataToExpression(form: FormRef["current"]) {
+async function switchDataToExpression(form: NonNullable<FormRef["current"]>) {
   await act(async () => {
     // Step 1: sentinel — marks form dirty
     form.setValue(SENTINEL_PATH as never, "Expression" as never, { shouldDirty: true });
@@ -147,7 +147,7 @@ async function switchDataToExpression(form: FormRef["current"]) {
 }
 
 /** Simulate OneOfFieldRow.handleVariantChange for Expression → Data. */
-async function switchExpressionToData(form: FormRef["current"]) {
+async function switchExpressionToData(form: NonNullable<FormRef["current"]>) {
   await act(async () => {
     // Step 1: sentinel — marks form dirty ("Data" ≠ committed "Expression")
     form.setValue(SENTINEL_PATH as never, "Data" as never, { shouldDirty: true });

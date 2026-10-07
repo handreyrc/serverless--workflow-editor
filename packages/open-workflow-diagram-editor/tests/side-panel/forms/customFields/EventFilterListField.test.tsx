@@ -97,14 +97,14 @@ function Wrapper({
 }
 
 /** Renders in edit mode with pre-populated taskData and equivalent defaultValues. */
-function renderWithFilters(filters = TWO_FILTERS) {
+function renderWithFilters(filters: unknown[] = TWO_FILTERS) {
   const taskData = { listen: { to: { all: filters } } };
   const defaultValues = { "listen.to.all": filters };
   return render(<Wrapper defaultValues={defaultValues} taskData={taskData} isReadOnly={false} />);
 }
 
 /** Renders in read-only mode with the given filters in taskData. */
-function renderReadOnly(filters = TWO_FILTERS) {
+function renderReadOnly(filters: unknown[] = TWO_FILTERS) {
   const taskData = { listen: { to: { all: filters } } };
   return render(<Wrapper taskData={taskData} isReadOnly={true} />);
 }
@@ -133,7 +133,7 @@ describe("EventFilterListField — read mode", () => {
   });
 
   it("shows 1 filter singular label for a single-item array", () => {
-    renderReadOnly([TWO_FILTERS[0]]);
+    renderReadOnly([TWO_FILTERS[0]!]);
     expect(screen.getByText(/1 filter/i)).toBeInTheDocument();
   });
 
@@ -246,7 +246,7 @@ describe("EventFilterListField — edit mode: deleting filters", () => {
 
     // There are 2 filters; delete the first one (aria-label "Remove filter 1")
     const deleteButtons = screen.getAllByRole("button", { name: /remove filter \d/i });
-    await user.click(deleteButtons[0]);
+    await user.click(deleteButtons[0]!);
 
     // Only 1 filter should remain
     expect(screen.getByText(/1 filter/i)).toBeInTheDocument();
@@ -255,7 +255,7 @@ describe("EventFilterListField — edit mode: deleting filters", () => {
 
   it("hides the count badge when all filters are deleted", async () => {
     const user = userEvent.setup();
-    renderWithFilters([TWO_FILTERS[0]]); // start with 1
+    renderWithFilters([TWO_FILTERS[0]!]); // start with 1
 
     const deleteButton = screen.getByRole("button", { name: /remove filter 1/i });
     await user.click(deleteButton);
@@ -269,7 +269,7 @@ describe("EventFilterListField — edit mode: deleting filters", () => {
 describe("EventFilterListField — edit mode: with sub-panel", () => {
   it("toggles the event properties sub-panel open and closed", async () => {
     const user = userEvent.setup();
-    renderWithFilters([TWO_FILTERS[0]]);
+    renderWithFilters([TWO_FILTERS[0]!]);
 
     const disclosureBtn = screen.getByRole("button", { name: /event properties/i });
 
@@ -287,7 +287,7 @@ describe("EventFilterListField — edit mode: with sub-panel", () => {
 
   it("shows pre-populated type value in the with sub-panel", async () => {
     const user = userEvent.setup();
-    renderWithFilters([TWO_FILTERS[0]]);
+    renderWithFilters([TWO_FILTERS[0]!]);
 
     await user.click(screen.getByRole("button", { name: /event properties/i }));
     const typeInput = screen.getByRole("textbox", { name: "type" });
@@ -462,7 +462,7 @@ describe("EventFilterListField — edit mode: with sub-panel", () => {
 
 describe("EventFilterListField — edit mode: correlate section", () => {
   it("renders a correlate section header button for each filter", () => {
-    renderWithFilters([TWO_FILTERS[0]]);
+    renderWithFilters([TWO_FILTERS[0]!]);
     // The correlate button has no stable aria-label; match by CSS class
     const correlateButtons = getCorrelateButtons();
     expect(correlateButtons.length).toBe(1);
@@ -470,9 +470,9 @@ describe("EventFilterListField — edit mode: correlate section", () => {
 
   it("expands the correlate section when its header is clicked", async () => {
     const user = userEvent.setup();
-    renderWithFilters([TWO_FILTERS[0]]);
+    renderWithFilters([TWO_FILTERS[0]!]);
 
-    const [correlateBtn] = getCorrelateButtons();
+    const correlateBtn = getCorrelateButtons()[0]!;
     await user.click(correlateBtn);
 
     // Add key button should be visible after expanding
@@ -484,9 +484,9 @@ describe("EventFilterListField — edit mode: correlate section", () => {
     // component — empty-key rows are not serialized back into item data, so the row
     // disappears on re-render.  This test verifies the button is present and clickable.
     const user = userEvent.setup();
-    renderWithFilters([TWO_FILTERS[0]]);
+    renderWithFilters([TWO_FILTERS[0]!]);
 
-    const [correlateBtn] = getCorrelateButtons();
+    const correlateBtn = getCorrelateButtons()[0]!;
     await user.click(correlateBtn);
 
     // The Add key button should be present inside the expanded section
@@ -511,7 +511,7 @@ describe("EventFilterListField — edit mode: correlate section", () => {
     render(<Wrapper defaultValues={defaultValues} taskData={taskData} isReadOnly={false} />);
 
     // Expand correlate section
-    const [correlateBtn] = getCorrelateButtons();
+    const correlateBtn = getCorrelateButtons()[0]!;
     await user.click(correlateBtn);
 
     // Key name input should have "orderId" and expression input should have the from value
@@ -533,7 +533,7 @@ describe("EventFilterListField — edit mode: correlate section", () => {
     render(<Wrapper defaultValues={defaultValues} taskData={taskData} isReadOnly={false} />);
 
     // The correlate button text includes the count badge "1 key"
-    const [correlateBtn] = getCorrelateButtons();
+    const correlateBtn = getCorrelateButtons()[0]!;
     expect(correlateBtn.textContent).toContain("1 key");
   });
 
@@ -585,7 +585,7 @@ describe("EventFilterListField — edit mode: correlate section", () => {
     }
 
     render(<UpdateCorrelateTester />);
-    const [correlateBtn] = getCorrelateButtons();
+    const correlateBtn = getCorrelateButtons()[0]!;
     await user.click(correlateBtn);
 
     const keyInput = screen.getByDisplayValue("orderId");

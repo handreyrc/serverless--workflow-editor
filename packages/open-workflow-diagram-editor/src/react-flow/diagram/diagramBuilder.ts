@@ -18,6 +18,7 @@ import * as RF from "@xyflow/react";
 import {
   buildFlatGraph,
   CATCH_CONTAINER_NODE_TYPE,
+  getDefaultCaseEdgeIds,
   getErrorTaskReferences,
   getTaskReferences,
   type SdkError,
@@ -118,6 +119,7 @@ function buildReactFlowNode(
 function buildReactFlowEdge(
   graphEdge: sdk.GraphEdge,
   nodeMap: Map<string, RF.Node>,
+  defaultCaseEdgeIds: Set<string>,
 ): RF.Edge<BaseEdgeData> {
   const type = getEdgeType(graphEdge, nodeMap);
 
@@ -129,7 +131,7 @@ function buildReactFlowEdge(
     data: {
       label: graphEdge.label ?? "",
     },
-    animated: graphEdge.label === "default" || type === EdgeTypes.Error,
+    animated: defaultCaseEdgeIds.has(graphEdge.id) || type === EdgeTypes.Error,
   };
 }
 
@@ -144,6 +146,7 @@ export function buildDiagramElements(
     const graph = buildFlatGraph(model);
     const catchContainerIds = getCatchContainerNodeIds(graph);
     const erroringTaskReferences = getErrorTaskReferences(errors, getTaskReferences(graph));
+    const defaultCaseEdgeIds = getDefaultCaseEdgeIds(graph);
 
     graph.nodes.forEach((graphNode) =>
       nodes.push(buildReactFlowNode(graphNode, catchContainerIds, erroringTaskReferences)),
@@ -157,7 +160,7 @@ export function buildDiagramElements(
     graph.edges.forEach((graphEdge) => {
       // Only create edges for existing nodes
       if (edgeSourceAndTargetExist(graphEdge, nodeIdSet)) {
-        edges.push(buildReactFlowEdge(graphEdge, nodeMap));
+        edges.push(buildReactFlowEdge(graphEdge, nodeMap, defaultCaseEdgeIds));
       }
     });
   }

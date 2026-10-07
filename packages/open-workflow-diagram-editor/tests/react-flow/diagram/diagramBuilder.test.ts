@@ -114,10 +114,6 @@ const assertEdgeHasBaseProperties = (edge: RF.Edge) => {
   });
 };
 
-const assertEdgeIsAnimated = (edge: RF.Edge) => {
-  expect(edge.animated).toBe(true);
-};
-
 const assertEdgeNodesExist = (edge: RF.Edge, nodeIdSet: Set<string>) => {
   expect(nodeIdSet.has(edge.source)).toBe(true);
   expect(nodeIdSet.has(edge.target)).toBe(true);
@@ -354,11 +350,6 @@ describe("diagramBuilder", () => {
         diagram.edges.forEach(assertEdgeHasBaseProperties);
       });
 
-      it("creates edges with animated property for default label", () => {
-        const defaultEdges = diagram.edges.filter((edge) => edge.data?.label === "default");
-        defaultEdges.forEach(assertEdgeIsAnimated);
-      });
-
       it("only creates edges for existing nodes", () => {
         diagram.edges.forEach((edge) => assertEdgeNodesExist(edge, nodeIdSet));
       });
@@ -413,6 +404,45 @@ describe("diagramBuilder", () => {
           expect(nodeIdSet.has(edge.source)).toBe(true);
           expect(nodeIdSet.has(edge.target)).toBe(true);
         });
+      });
+    });
+
+    describe("default switch case edge (animated)", () => {
+      it("animates the default case edge and leaves the conditional one alone", () => {
+        const content = `{
+          "document": {
+            "dsl": "1.0.3",
+            "name": "switch-default",
+            "version": "1.0.0",
+            "namespace": "default"
+          },
+          "do": [
+            {
+              "decide": {
+                "switch": [
+                  { "conditional": { "when": ".t == 1", "then": "alpha" } },
+                  { "hello": { "then": "beta" } }
+                ]
+              }
+            },
+            { "alpha": { "set": { "a": 1 }, "then": "exit" } },
+            { "beta": { "set": { "b": 1 }, "then": "exit" } }
+          ]
+        }`;
+
+        const diagram = buildDiagramFromWorkflow(content);
+        const animatedByLabel = new Map(
+          diagram.edges
+            .filter((edge) => edge.source === "/do/decide")
+            .map((edge) => [edge.data?.label, edge.animated]),
+        );
+
+        expect(animatedByLabel).toEqual(
+          new Map([
+            ["hello", true],
+            ["conditional", false],
+          ]),
+        );
       });
     });
 
@@ -987,34 +1017,30 @@ describe("diagramBuilder", () => {
     });
   });
 
- describe("editable node ids", () => {
-   const model = parseFixture(NESTED_CONTAINERS_WORKFLOW);
-   const diagram = buildDiagramElements(model);
+  describe("editable node ids", () => {
+    const model = parseFixture(NESTED_CONTAINERS_WORKFLOW);
+    const diagram = buildDiagramElements(model);
 
+    it("resolves every node the panel treats as an editable task", () => {
+      const editableIds = diagram.nodes
+        .filter((node) => node.data.taskReference !== undefined)
+        .map((node) => node.id);
 
-   it("resolves every node the panel treats as an editable task", () => {
-     const editableIds = diagram.nodes
-       .filter((node) => node.data.taskReference !== undefined)
-       .map((node) => node.id);
+      expect(editableIds.length).toBeGreaterThan(0);
+      for (const id of editableIds) {
+        expect(() => updateTask(model, id, { set: { touched: true } })).not.toThrow();
+      }
+    });
 
+    it("withholds the editable marker from container frames, whose ids address no task", () => {
+      const frameIds = diagram.nodes
+        .filter((node) => node.data.task !== undefined && node.data.taskReference === undefined)
+        .map((node) => node.id);
 
-     expect(editableIds.length).toBeGreaterThan(0);
-     for (const id of editableIds) {
-       expect(() => updateTask(model, id, { set: { touched: true } })).not.toThrow();
-     }
-   });
-
-
-   it("withholds the editable marker from container frames, whose ids address no task", () => {
-     const frameIds = diagram.nodes
-       .filter((node) => node.data.task !== undefined && node.data.taskReference === undefined)
-       .map((node) => node.id);
-
-
-     expect(frameIds).toEqual(["/do/tryTask/try", "/do/tryTask/catch/do"]);
-     for (const id of frameIds) {
-       expect(() => updateTask(model, id, { set: { touched: true } })).toThrow(/Task not found/);
-     }
-   });
- });
+      expect(frameIds).toEqual(["/do/tryTask/try", "/do/tryTask/catch/do"]);
+      for (const id of frameIds) {
+        expect(() => updateTask(model, id, { set: { touched: true } })).toThrow(/Task not found/);
+      }
+    });
+  });
 });

@@ -26,41 +26,41 @@ const re = new RegExp(ISO_8601_DURATION_PATTERN);
 describe("ISO_8601_DURATION_PATTERN", () => {
   it.each([
     // Date-only designators
-    ["P1Y", true],
-    ["P2M", true],
-    ["P3W", true],
-    ["P4D", true],
+    "P1Y",
+    "P2M",
+    "P3W",
+    "P4D",
     // Time-only designators
-    ["PT1H", true],
-    ["PT30M", true],
-    ["PT45S", true],
+    "PT1H",
+    "PT30M",
+    "PT45S",
     // Combined date + time
-    ["P1Y2M3DT4H5M6S", true],
-    ["P1DT12H", true],
+    "P1Y2M3DT4H5M6S",
+    "P1DT12H",
     // Decimal fractions
-    ["P1.5Y", true],
-    ["PT0.5S", true],
+    "P1.5Y",
+    "PT0.5S",
     // Zero duration
-    ["P0D", true],
-    ["PT0S", true],
+    "P0D",
+    "PT0S",
   ] as const)("matches valid duration '%s'", (input) => {
     expect(re.test(input)).toBe(true);
   });
 
   it.each([
     // Missing "P" prefix
-    ["1Y", false],
-    ["T1H", false],
+    "1Y",
+    "T1H",
     // Just "P" with no designators (P alone is invalid — the pattern requires at least one part)
-    ["P", false],
+    "P",
     // Time marker "T" with no following value
-    ["PT", false],
+    "PT",
     // Plain strings / ISO dates
-    ["2024-01-01", false],
-    ["", false],
-    ["hello", false],
+    "2024-01-01",
+    "",
+    "hello",
     // Seconds without T separator
-    ["P30S", false],
+    "P30S",
   ] as const)("rejects invalid value '%s'", (input) => {
     expect(re.test(input)).toBe(false);
   });

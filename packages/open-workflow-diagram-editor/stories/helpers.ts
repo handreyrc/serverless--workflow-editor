@@ -30,7 +30,7 @@ const DEFAULT_STORY_ARGS = {
  * @param workflowContent - The workflow YAML/JSON content to display
  * @returns A configured Story object
  */
-export const createWorkflowStory = (workflowContent: string): Story => {
+export const createWorkflowStory = (workflowContent: string) => {
   return {
     args: {
       ...DEFAULT_STORY_ARGS,
@@ -41,5 +41,5 @@ export const createWorkflowStory = (workflowContent: string): Story => {
       // for ELK auto-layout + React Flow node rendering in headless Chromium.
       await canvas.findByTestId("start-node-root-entry-node", {}, { timeout: 10000 });
     },
-  };
+  } satisfies Story;
 };

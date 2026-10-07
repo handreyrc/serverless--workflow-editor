@@ -132,7 +132,7 @@ function makeOneOf(path: string): FormFieldDescriptor {
     path,
     label: path,
     required: false,
-    variants: [{ label: "v", fields: [], matchesData: () => true }],
+    variants: [{ label: "v", fields: [], matchesData: () => true, constWrites: {} }],
   };
 }
 

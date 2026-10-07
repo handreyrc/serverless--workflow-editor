@@ -32,12 +32,11 @@ describe("NodeDetailsView", () => {
   it("renders the Properties section and form for a task node", () => {
     const node = makeNode({
       label: "getPets",
-      task: {
-        call: "http",
-        with: { endpoint: "https://api.example.com", method: "get" },
-        // eslint-disable-next-line unicorn/no-thenable -- then is an Open Workflow Spec field
-        then: "continue",
-      },
+      task: JSON.parse(`{
+        "call": "http",
+        "with": { "endpoint": "https://api.example.com", "method": "get" },
+        "then": "continue"
+      }`),
     });
 
     renderWithProviders(<NodeDetailsView node={node} />);
