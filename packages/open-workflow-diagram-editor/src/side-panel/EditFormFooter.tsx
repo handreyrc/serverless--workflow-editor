@@ -153,7 +153,9 @@ function DraftStatus({ changedCount, isDirty, showApplied }: DraftStatusProps) {
  */
 function resolveTaskId(node: RF.Node<BaseNodeData>): string {
   if (
-    (node.type === GraphNodeType.Try || node.type === GraphNodeType.Catch) &&
+    (node.type === GraphNodeType.Try ||
+      node.type === GraphNodeType.Catch ||
+      node.type === "catch-container") &&
     node.parentId !== undefined
   ) {
     return node.parentId;
@@ -248,6 +250,10 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
           // by EnumControl.  This avoids a nested Controller that would corrupt
           // RHF's dirty-field tracking.
           const innerObj = getInnerObjectForPath(enumField.path, enumField.innerObjectFormat);
+          // null means the textarea contains malformed or non-object content.
+          // Skip committing this field so the existing value is preserved until
+          // the user corrects the syntax (EnumControl shows an inline error).
+          if (innerObj === null) continue;
           flatValues[enumField.path] = { [key]: innerObj };
         } else {
           flatValues[enumField.path] = key ? enumField.valueMap![key] : undefined;

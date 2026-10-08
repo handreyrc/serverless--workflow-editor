@@ -58,7 +58,7 @@ export function flattenTask(
       if (Array.isArray(v) || wholeValuePaths.has(fullKey)) {
         result[fullKey] = v;
       } else if (typeof v === "object" && v !== null) {
-        const nested = { ...result, ...flattenTask(v, fullKey, wholeValuePaths) };
+        const nested = flattenTask(v, fullKey, wholeValuePaths);
         // If recursing into the object produced no entries but the object itself
         // is non-empty, keep it as a leaf so it is not silently discarded.
         // Truly empty objects ({}) are dropped as before.

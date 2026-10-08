@@ -72,3 +72,35 @@ test("clearing backoff to '—' and applying keeps it cleared after re-render", 
   // The backoff combobox should STILL show "—", not snap back to "exponential"
   await expect(backoffInput).toHaveValue("—");
 });
+
+test("editing backoff inner object replaces old content completely after apply", async ({
+  page,
+}) => {
+  await page.goto("/iframe.html?id=nested-editing-workflows--try-catch-retry-inline");
+  await waitForDiagram(page);
+
+  // Click the try container node header
+  const tryNode = page.getByTestId("try-node-/do/tryGetPet/try");
+  await expect(tryNode).toBeVisible();
+  const tryHeader = tryNode.locator(".dec-container-node-header");
+  await tryHeader.click({ force: true });
+  await waitForSidebar(page);
+
+  const form = page.locator(".dec-task-form");
+  await expect(form).toBeVisible();
+
+  // Find the backoff textarea (inner object editor) — it has aria-label matching the selected key
+  const textarea = form.getByRole("textbox", { name: "exponential" });
+  await expect(textarea).toBeVisible();
+
+  // Replace the entire content with "ok: ok"
+  await textarea.fill("ok: ok");
+
+  // Click Apply
+  const applyButton = page.getByRole("button", { name: /apply/i });
+  await expect(applyButton).toBeEnabled();
+  await applyButton.click();
+
+  // The textarea should show only "ok: ok", not merged with old content
+  await expect(textarea).toHaveValue("ok: ok");
+});

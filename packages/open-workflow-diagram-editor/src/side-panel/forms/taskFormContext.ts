@@ -129,6 +129,8 @@ export function collectWholeValuePaths(
   const walk = (list: FormFieldDescriptor[]): void => {
     for (const field of list) {
       if (field.kind === "map" || field.kind === "json") paths.add(field.path);
+      else if (field.kind === "enum" && field.innerObjectFormat !== undefined)
+        paths.add(field.path);
       else if (field.kind === "object") walk(field.children);
       else if (field.kind === "one-of") {
         const data = field.path === "__root__" ? taskData : getNestedValue(taskData, field.path);

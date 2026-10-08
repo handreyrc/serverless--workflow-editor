@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FormProvider, useForm } from "react-hook-form";
 import { I18nProvider } from "@openworkflowspec/i18n";
@@ -86,6 +86,29 @@ describe("getInnerObjectForPath", () => {
     expect(getInnerObjectForPath("untracked.path", "yaml")).toEqual({});
     expect(getInnerObjectForPath("untracked.path", "json")).toEqual({});
   });
+
+  it("returns null for malformed YAML", () => {
+    render(<EnumControlWrapper field={backoffEnumField} defaultValue={{ exponential: {} }} />);
+    const textarea = screen.getByRole("textbox", { name: "exponential" });
+    fireEvent.change(textarea, { target: { value: "[unclosed" } });
+    expect(getInnerObjectForPath("catch.retry.backoff", "yaml")).toBeNull();
+  });
+
+  it("returns null for a valid YAML scalar (non-object)", () => {
+    render(<EnumControlWrapper field={backoffEnumField} defaultValue={{ exponential: {} }} />);
+    const textarea = screen.getByRole("textbox", { name: "exponential" });
+    fireEvent.change(textarea, { target: { value: "42" } });
+    expect(getInnerObjectForPath("catch.retry.backoff", "yaml")).toBeNull();
+  });
+
+  it("returns empty object when textarea is cleared", () => {
+    render(
+      <EnumControlWrapper field={backoffEnumField} defaultValue={{ exponential: { rate: 2 } }} />,
+    );
+    const textarea = screen.getByRole("textbox", { name: "exponential" });
+    fireEvent.change(textarea, { target: { value: "" } });
+    expect(getInnerObjectForPath("catch.retry.backoff", "yaml")).toEqual({});
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -124,5 +147,35 @@ describe("EnumControl — valueMap enum with inner object textarea", () => {
     await user.type(textarea, "multiplier: 3");
 
     expect(getInnerObjectForPath("catch.retry.backoff", "yaml")).toEqual({ multiplier: 3 });
+  });
+
+  it("shows a parse-error message when the inner textarea contains malformed YAML", () => {
+    render(<EnumControlWrapper field={backoffEnumField} defaultValue={{ exponential: {} }} />);
+
+    const textarea = screen.getByRole("textbox", { name: "exponential" });
+    fireEvent.change(textarea, { target: { value: "[unclosed" } });
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Must be a valid YAML/JSON object");
+    expect(textarea).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("shows a parse-error message when the inner textarea contains a scalar value", () => {
+    render(<EnumControlWrapper field={backoffEnumField} defaultValue={{ exponential: {} }} />);
+
+    const textarea = screen.getByRole("textbox", { name: "exponential" });
+    fireEvent.change(textarea, { target: { value: "just-a-string" } });
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Must be a valid YAML/JSON object");
+  });
+
+  it("clears the parse-error message when the textarea is fixed to valid YAML", () => {
+    render(<EnumControlWrapper field={backoffEnumField} defaultValue={{ exponential: {} }} />);
+
+    const textarea = screen.getByRole("textbox", { name: "exponential" });
+    fireEvent.change(textarea, { target: { value: "[unclosed" } });
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+
+    fireEvent.change(textarea, { target: { value: "rate: 2" } });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
