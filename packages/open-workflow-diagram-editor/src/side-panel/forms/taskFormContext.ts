@@ -15,7 +15,7 @@
  */
 
 import * as React from "react";
-import type { FormFieldDescriptor } from "../../core/schemaToFormFields";
+import type { FormFieldDescriptor, EnumField } from "../../core/schemaToFormFields";
 
 // ---------------------------------------------------------------------------
 // TaskFormContext
@@ -97,6 +97,22 @@ export function collectFormListPaths(fields: FormFieldDescriptor[]): Set<string>
   walk(fields);
 
   return paths;
+}
+
+export function collectValueMapFields(fields: FormFieldDescriptor[]): EnumField[] {
+  const result: EnumField[] = [];
+  for (const field of fields) {
+    if (field.kind === "enum" && field.valueMap !== undefined) {
+      result.push(field);
+    } else if (field.kind === "object") {
+      result.push(...collectValueMapFields(field.children));
+    } else if (field.kind === "one-of") {
+      for (const variant of field.variants) {
+        result.push(...collectValueMapFields(variant.fields));
+      }
+    }
+  }
+  return result;
 }
 
 /*
