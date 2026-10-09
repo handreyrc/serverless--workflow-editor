@@ -238,10 +238,8 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
         if (key && enumField.innerObjectFormat !== undefined) {
           // Read the inner object content from the module-level store populated by EnumControl.
           const innerObj = getInnerObjectForPath(enumField.path, enumField.innerObjectFormat);
-          // null means the textarea contains malformed or non-object content.
-          // Skip committing this field so the existing value is preserved until
-          // the user corrects the syntax (EnumControl shows an inline error).
-          if (innerObj === null) continue;
+          // Keep the draft and inline parse error intact; do not partially commit the form.
+          if (innerObj === null) return;
           flatValues[enumField.path] = { [key]: innerObj };
         } else {
           flatValues[enumField.path] = key ? enumField.valueMap![key] : undefined;

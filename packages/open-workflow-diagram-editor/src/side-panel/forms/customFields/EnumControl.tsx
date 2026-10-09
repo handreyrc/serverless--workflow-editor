@@ -236,8 +236,10 @@ export function EnumControl({ field, id }: EnumControlProps) {
               const restored = savedInnerTexts.current.get(val ?? "");
               const newText = restored ?? "";
               setInnerText(newText);
-              setInnerParseError(false);
               innerObjectTextStore.set(field.path, newText);
+              setInnerParseError(
+                getInnerObjectForPath(field.path, field.innerObjectFormat ?? "yaml") === null,
+              );
             }
             setSelectedKey(val ?? "");
           }
