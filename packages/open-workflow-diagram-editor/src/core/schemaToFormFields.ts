@@ -290,8 +290,7 @@ function isMapSchema(schema: Record<string, unknown>): boolean {
 
 /**
  * Returns the ordered variant keys if every oneOf candidate has exactly one
- * property whose value schema is an empty-object marker (no properties, no
- * nested constraints). Returns undefined otherwise.
+ * property whose value schema is an empty-object marker.
  */
 function isBackoffSchema(
   schema: Record<string, unknown>,
@@ -323,7 +322,6 @@ function isBackoffSchema(
     if (!isPlainObject(valueProp)) return undefined;
     const valueObj = valueProp as Record<string, unknown>;
     // Reject if the value schema has any structural constraints.
-    // additionalProperties: false is a common closing annotation and is not structural.
     const hasStructure =
       valueObj.properties !== undefined ||
       valueObj.oneOf !== undefined ||
@@ -669,10 +667,8 @@ export function schemaToFormFields(
     }
 
     // ── Backoff type selector ───────────────────────────────────────────────
-    // Emits an EnumField with valueMap so EnumControl writes the discriminator
-    // object instead of a plain string.  Also sets
-    // innerObjectFormat so EnumControl renders a textarea for the inner object
-    // payload beneath the combobox.
+    // Emits an EnumField with valueMap so EnumControl and sets innerObjectFormat
+    // so EnumControl renders a textarea for the inner object payload beneath the combobox.
     const backoffOptions = isBackoffSchema(resolved, localDefs);
     if (backoffOptions) {
       const valueMap: Record<string, unknown> = {};

@@ -146,10 +146,6 @@ function DraftStatus({ changedCount, isDirty, showApplied }: DraftStatusProps) {
 
 /**
  * Returns the task id used to locate and update the task in the workflow model.
- *
- * Try and catch inner nodes carry the full TryTask object but their own `id`
- * is a property path that cannot be resolved by `updateTask`. Their parent
- * try-catch container node has the addressable id, so we delegate to that instead.
  */
 function resolveTaskId(node: RF.Node<BaseNodeData>): string {
   if (
@@ -230,12 +226,6 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
     // that are exclusive to the non-selected variants so they can be removed.
     const nodeType = node.type ?? "";
     const allFields = nodeType ? getFormFieldsForNodeType(nodeType) : [];
-
-    // EnumFields with valueMap store a plain string key in the Controller (so
-    // RHF dirty tracking works) — convert those string keys back to their model
-    // objects here, and treat any changed valueMap path as dirty.
-    // Fields with innerObjectFormat also carry an inner object whose content is
-    // managed outside RHF via innerObjectTextStore; merge it into the final value.
     const flatTask = flattenTask(task as Record<string, unknown>);
     for (const enumField of collectValueMapFields(allFields)) {
       // Read via getValues(path) — reads _formValues directly, bypassing the
@@ -246,9 +236,7 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
       if (typeof raw === "string") {
         const key = raw;
         if (key && enumField.innerObjectFormat !== undefined) {
-          // Read the inner object content from the module-level store populated
-          // by EnumControl.  This avoids a nested Controller that would corrupt
-          // RHF's dirty-field tracking.
+          // Read the inner object content from the module-level store populated by EnumControl.
           const innerObj = getInnerObjectForPath(enumField.path, enumField.innerObjectFormat);
           // null means the textarea contains malformed or non-object content.
           // Skip committing this field so the existing value is preserved until
@@ -260,12 +248,6 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
         }
         flatDirty.add(enumField.path);
       } else if (raw === undefined && flatTask[enumField.path] !== undefined) {
-        // The user cleared an optional valueMap field (selected "—").
-        // RHF sets the Controller to undefined but does NOT populate dirtyFields
-        // for this path (RHF quirk: setting to undefined makes isDirty=true but
-        // leaves dirtyFields empty). Detect the clear by comparing against the
-        // committed task snapshot, then inject the undefined entry so that
-        // applyDirtyValues encounters it and calls deletePath.
         flatValues[enumField.path] = undefined;
         flatDirty.add(enumField.path);
       }

@@ -134,10 +134,6 @@ export function EnumControl({ field, id }: EnumControlProps) {
   }, [taskData]);
 
   // Local selected-key state for valueMap fields.
-  // Init: prefer the live RHF value (set by a previous variant switch or restore);
-  // fall back to taskData (committed snapshot) when no RHF value is present yet.
-  // Effect: re-sync from defaultValues on every form.reset() — the same pattern
-  // used by KeyValueMapField and EventFilterListField.
   const [selectedKey, setSelectedKey] = React.useState<string>(() => {
     if (!hasValueMap) return "";
     const rhfValue = getValues(field.path as never) as unknown;
@@ -147,18 +143,19 @@ export function EnumControl({ field, id }: EnumControlProps) {
   });
 
   // Local inner-object text state.  Only populated when innerObjectFormat is set.
-  // Managed here (not via a nested Controller) so that switching the backoff type
-  // does not create overlapping Controller registrations that confuse RHF dirty tracking.
-  // The current text is also mirrored into `innerObjectTextStore` so that
-  // EditFormFooter's handleApply can read the inner content without using RHF.
   const [innerText, setInnerText] = React.useState<string>(() => {
     if (!hasInnerObject) return "";
+
     const rhfValue = getValues(field.path as never) as unknown;
+    if (typeof rhfValue === "string" && rhfValue !== "") {
+      const stored = innerObjectTextStore.get(field.path);
+      if (stored !== undefined) return stored;
+    }
+
     const fromValue =
       rhfValue !== undefined && rhfValue !== null ? rhfValue : getNestedValue(taskData, field.path);
     const innerObj = deriveInnerObject(fromValue);
     const text = serializeInnerObject(innerObj, field.innerObjectFormat ?? "yaml");
-    // Initialise the store so handleApply has the value even before any edit.
     innerObjectTextStore.set(field.path, text);
     return text;
   });
@@ -202,14 +199,6 @@ export function EnumControl({ field, id }: EnumControlProps) {
     if (!hasInnerObject) return;
     innerObjectTextStore.set(field.path, innerText);
   }, [field.path, hasInnerObject, innerText]);
-
-  // Clean up the store entry when the component unmounts.
-  React.useEffect(() => {
-    if (!hasInnerObject) return;
-    return () => {
-      innerObjectTextStore.delete(field.path);
-    };
-  }, [field.path, hasInnerObject]);
 
   return (
     <Controller
