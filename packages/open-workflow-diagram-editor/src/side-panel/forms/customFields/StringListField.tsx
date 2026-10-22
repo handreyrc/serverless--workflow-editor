@@ -67,7 +67,7 @@ export type StringListFieldProps = {
 
 export function StringListField({ field }: StringListFieldProps) {
   const { t } = useI18n();
-  const { isReadOnly, taskData } = useTaskFormContext();
+  const { isReadOnly, taskData, validateField } = useTaskFormContext();
   const form = useFormContext() as UseFormReturn<Record<string, unknown>>;
   const { setValue, getValues } = form;
 
@@ -117,38 +117,33 @@ export function StringListField({ field }: StringListFieldProps) {
         toStringArray(nextRows),
         { shouldDirty: true },
       );
+      validateField?.(field.path);
     },
-    [field.path, setValue],
+    [field.path, setValue, validateField],
   );
 
   const updateRow = React.useCallback(
     (id: string, newValue: string) => {
-      setRows((prev) => {
-        const next = prev.map((r) => (r.id === id ? { ...r, value: newValue } : r));
-        commitToForm(next);
-        return next;
-      });
+      const next = rows.map((r) => (r.id === id ? { ...r, value: newValue } : r));
+      setRows(next);
+      commitToForm(next);
     },
-    [commitToForm],
+    [rows, commitToForm],
   );
 
   const addRow = React.useCallback(() => {
-    setRows((prev) => {
-      const next = [...prev, { id: newId(), value: "" }];
-      commitToForm(next);
-      return next;
-    });
-  }, [commitToForm]);
+    const next = [...rows, { id: newId(), value: "" }];
+    setRows(next);
+    commitToForm(next);
+  }, [rows, commitToForm]);
 
   const deleteRow = React.useCallback(
     (id: string) => {
-      setRows((prev) => {
-        const next = prev.filter((r) => r.id !== id);
-        commitToForm(next);
-        return next;
-      });
+      const next = rows.filter((r) => r.id !== id);
+      setRows(next);
+      commitToForm(next);
     },
-    [commitToForm],
+    [rows, commitToForm],
   );
 
   // ── Count badge ────────────────────────────────────────────────────────────

@@ -25,7 +25,7 @@ import { useFormState } from "react-hook-form";
 import { updateTask } from "@/core/workflowEditing";
 import { applyDirtyValues, flattenTask, setNestedPath } from "@/core/taskDraft";
 import { getFormFieldsForNodeType } from "@/core";
-import { getInnerObjectForPath } from "@/side-panel/forms/customFields/EnumControl";
+import { getValueMapInnerObject } from "@/side-panel/forms/customFields/EnumControl";
 import { useDiagramEditorContext } from "@/store/DiagramEditorContext";
 import { useEditSession } from "./EditSession";
 import { Check } from "lucide-react";
@@ -40,6 +40,7 @@ import {
   computeSentinelDefaults,
   getNestedValue,
   padRemovedPaths,
+  valueMapModelValue,
 } from "./forms/taskFormContext";
 import { SENTINEL_KEY, SENTINEL_PREFIX, SENTINEL_SUFFIX } from "@/side-panel/forms/sentinels";
 import { changedPaths } from "./forms/draftChanges";
@@ -164,16 +165,11 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
       const raw =
         typeof live === "string" || live === undefined ? live : flatValues[enumField.path];
       if (typeof raw === "string") {
-        const key = raw;
-        if (key && enumField.innerObjectFormat !== undefined) {
-          // Read the inner object content from the module-level store populated by EnumControl.
-          const innerObj = getInnerObjectForPath(enumField.path, enumField.innerObjectFormat);
-          // Keep the draft and inline parse error intact; do not partially commit the form.
-          if (innerObj === null) return;
-          flatValues[enumField.path] = { [key]: innerObj };
-        } else {
-          flatValues[enumField.path] = key ? enumField.valueMap![key] : undefined;
-        }
+        // Read the inner object content from the module-level store populated by EnumControl.
+        const innerObj = getValueMapInnerObject(enumField, raw);
+        // Keep the draft and inline parse error intact; do not partially commit the form.
+        if (innerObj === null) return;
+        flatValues[enumField.path] = valueMapModelValue(enumField, raw, innerObj);
         flatDirty.add(enumField.path);
       } else if (raw === undefined && flatTask[enumField.path] !== undefined) {
         flatValues[enumField.path] = undefined;

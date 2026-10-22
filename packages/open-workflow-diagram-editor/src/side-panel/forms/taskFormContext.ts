@@ -39,6 +39,10 @@ export type TaskFormContextType = {
    * additionally for field-visibility filtering in read-only mode.
    */
   taskData: Record<string, unknown>;
+  /**
+   * Handler to trigger schema validation for a specific field path on blur or interaction.
+   */
+  validateField?: (path: string) => void;
 };
 
 /**
@@ -123,6 +127,7 @@ export function getNestedValue(data: Record<string, unknown>, path: string): unk
   for (const part of parts) {
     if (current === null || current === undefined) return undefined;
     if (typeof current !== "object" || Array.isArray(current)) return undefined;
+    if (!Object.prototype.hasOwnProperty.call(current, part)) return undefined;
     current = (current as Record<string, unknown>)[part];
   }
   return current;
@@ -147,76 +152,75 @@ function hasObjectAtPath(task: Record<string, unknown>, path: string): boolean {
   return v !== null && v !== undefined && typeof v === "object" && !Array.isArray(v);
 }
 
+// ---------------------------------------------------------------------------
+// Descriptor walkers
+//
+// `forEachField` is the one place that decides which descriptors have children to enter
+// (`object`, `section`, and every variant of a `one-of`). Walkers that visit the whole tree use it;
+// a section's children keep task-level paths, so a walker that skips it silently loses the common
+// fields. Walkers that follow only the selected variant (or transform the tree) are written by hand
+// and must enter a `section` wherever they enter an `object`.
+// tests/side-panel/forms/sectionWalkers.test.ts checks each one — add new walkers there.
+// ---------------------------------------------------------------------------
+
+/**
+ * Calls `visit` for every descriptor in the tree, parents before their children. Enters the
+ * children of `object` and `section` fields and the fields of every variant of a `one-of`.
+ */
+export function forEachField(
+  fields: FormFieldDescriptor[],
+  visit: (field: FormFieldDescriptor) => void,
+): void {
+  for (const field of fields) {
+    visit(field);
+    if (field.kind === "object" || field.kind === "section") {
+      forEachField(field.children, visit);
+    } else if (field.kind === "one-of") {
+      for (const variant of field.variants) forEachField(variant.fields, visit);
+    }
+  }
+}
+
 /*
  * Finds paths of arrays edited through form controls (ordered maps and event-filter lists).
  * These arrays get empty values pruned before saving, since clearing a control means "delete this key".
  */
 export function collectFormListPaths(fields: FormFieldDescriptor[]): Set<string> {
   const paths = new Set<string>();
-
-  const walk = (list: FormFieldDescriptor[]): void => {
-    for (const field of list) {
-      if (field.kind === "ordered-map" || field.kind === "event-filter-list") paths.add(field.path);
-      else if (field.kind === "object" || field.kind === "section") walk(field.children);
-      else if (field.kind === "one-of") for (const v of field.variants) walk(v.fields);
-    }
-  };
-  walk(fields);
-
+  forEachField(fields, (field) => {
+    if (field.kind === "ordered-map" || field.kind === "event-filter-list") paths.add(field.path);
+  });
   return paths;
 }
 
 /*
- * Finds paths of JSON/YAML fields, in every variant. 
+ * Finds paths of JSON/YAML fields, in every variant.
  * Apply writes it whole and it counts as one change.
  */
 export function collectJsonPaths(fields: FormFieldDescriptor[]): Set<string> {
   const paths = new Set<string>();
-
-  const walk = (list: FormFieldDescriptor[]): void => {
-    for (const field of list) {
-      if (field.kind === "json") paths.add(field.path);
-      else if (field.kind === "object" || field.kind === "section") walk(field.children);
-      else if (field.kind === "one-of") for (const v of field.variants) walk(v.fields);
-    }
-  };
-  walk(fields);
-
+  forEachField(fields, (field) => {
+    if (field.kind === "json") paths.add(field.path);
+  });
   return paths;
 }
 
-// ---------------------------------------------------------------------------
-// Descriptor walkers
-//
-// Every walker that enters an `object`'s children must enter a `section`'s too: a section's
-// children keep task-level paths, so a walker that skips it silently loses the common fields.
-// tests/side-panel/forms/sectionWalkers.test.ts checks each one — add new walkers there.
-// ---------------------------------------------------------------------------
-
 /**
  * Collects leaf field paths mapped to their effective kind for kind-aware clearing.
+ * An `event-filter-list` is one leaf: its internal structure is managed outside of RHF Controllers.
  */
 export function collectLeafKinds(fields: FormFieldDescriptor[]): Map<string, string> {
   const result = new Map<string, string>();
-  for (const f of fields) {
-    if (f.kind === "object" || f.kind === "section") {
-      for (const [p, k] of collectLeafKinds(f.children)) result.set(p, k);
-    } else if (f.kind === "one-of") {
-      for (const v of f.variants) {
-        for (const [p, k] of collectLeafKinds(v.fields)) result.set(p, k);
-      }
-    } else if (f.kind === "event-filter-list") {
-      // Treat the whole array as a single leaf — its internal structure is managed
-      // outside of RHF Controllers.
-      result.set(f.path, f.kind);
-    } else if (f.kind === "string") {
+  forEachField(fields, (f) => {
+    if (f.kind === "object" || f.kind === "section" || f.kind === "one-of") return;
+    if (f.kind === "string") {
       result.set(f.path, f.isRuntimeExpression ? "string:re" : "string:plain");
     } else if (f.kind === "enum") {
       result.set(f.path, `enum:${[...f.options].sort().join(",")}`);
     } else {
       result.set(f.path, f.kind);
     }
-  }
+  });
   return result;
 }
 
@@ -254,33 +258,30 @@ export function collectSelectedVariants(
 /** Recursively collects all leaf/intermediate dot-notation paths from a field list. */
 export function collectVariantFieldPaths(fields: FormFieldDescriptor[]): string[] {
   const paths: string[] = [];
-  for (const field of fields) {
-    paths.push(field.path);
-    if (field.kind === "object" || field.kind === "section") {
-      paths.push(...collectVariantFieldPaths(field.children));
-    } else if (field.kind === "one-of") {
-      for (const variant of field.variants) {
-        paths.push(...collectVariantFieldPaths(variant.fields));
-      }
-    }
-  }
+  forEachField(fields, (field) => paths.push(field.path));
   return paths;
 }
 
 export function collectValueMapFields(fields: FormFieldDescriptor[]): EnumField[] {
   const result: EnumField[] = [];
-  for (const field of fields) {
-    if (field.kind === "enum" && field.valueMap !== undefined) {
-      result.push(field);
-    } else if (field.kind === "object" || field.kind === "section") {
-      result.push(...collectValueMapFields(field.children));
-    } else if (field.kind === "one-of") {
-      for (const variant of field.variants) {
-        result.push(...collectValueMapFields(variant.fields));
-      }
-    }
-  }
+  forEachField(fields, (field) => {
+    if (field.kind === "enum" && field.valueMap !== undefined) result.push(field);
+  });
   return result;
+}
+
+/**
+ * Builds the model value for a valueMap-backed enum from the string key the form stores.
+ * Fields with an inner object payload become `{ [key]: innerObj }`; others use `valueMap[key]`.
+ * Shared by Apply and schema validation so both see the same representation.
+ */
+export function valueMapModelValue(
+  field: EnumField,
+  key: string,
+  innerObj: Record<string, unknown>,
+): unknown {
+  if (!key) return undefined;
+  return field.innerObjectFormat !== undefined ? { [key]: innerObj } : field.valueMap?.[key];
 }
 
 /*

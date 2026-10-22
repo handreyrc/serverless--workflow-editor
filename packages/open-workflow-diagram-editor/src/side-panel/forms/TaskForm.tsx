@@ -37,7 +37,7 @@ import {
   VariantSnapshotsContext,
   type VariantSnapshots,
 } from "./taskFormContext";
-import { useWorkflowErrorsForForm } from "./validation";
+import { useWorkflowErrorsForForm, useFieldLevelValidation } from "./validation";
 import { useEditSession } from "@/side-panel/EditSession";
 import { flattenTask, setNestedPath } from "@/core/taskDraft";
 import { SENTINEL_KEY, sentinelPath } from "./sentinels";
@@ -167,6 +167,9 @@ export function TaskForm({ nodeType, task, nodeId, taskReference }: TaskFormProp
     nodeId,
   );
 
+  // ── Field-level schema validation on blur / edit ─────────────────────────
+  const { validateField } = useFieldLevelValidation(nodeType, form, isReadOnly, allFields);
+
   // ── Read-only: filter fields to only those with values ────────────────────
   const visibleFields = React.useMemo(() => {
     if (!isReadOnly) return allFields;
@@ -205,7 +208,12 @@ export function TaskForm({ nodeType, task, nodeId, taskReference }: TaskFormProp
 
   return (
     <TaskFormContext.Provider
-      value={{ isReadOnly, siblingTaskNames, taskData: task as Record<string, unknown> }}
+      value={{
+        isReadOnly,
+        siblingTaskNames,
+        taskData: task as Record<string, unknown>,
+        validateField,
+      }}
     >
       <VariantSnapshotsContext.Provider value={variantSnapshots}>
         <DrillContext.Provider value={navigation.drill}>

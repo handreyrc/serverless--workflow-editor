@@ -18,6 +18,7 @@ import { load } from "js-yaml";
 import * as sdk from "@openworkflowspec/sdk";
 import { fixNodesConnections } from "./graph";
 import { stripSpecAheadOfSdkErrors } from "./specWorkarounds";
+import { isSafeKey } from "./utils";
 
 export type ContentFormat = "json" | "yaml";
 
@@ -29,11 +30,10 @@ export type ContentFormat = "json" | "yaml";
  * @returns A sanitized object with null prototype
  */
 function sanitizeObject(obj: Record<string, unknown>): Record<string, unknown> {
-  const dangerousKeys = ["__proto__", "constructor", "prototype"];
   const sanitized = Object.create(null) as Record<string, unknown>;
 
   for (const key in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, key) && !dangerousKeys.includes(key)) {
+    if (Object.prototype.hasOwnProperty.call(obj, key) && isSafeKey(key)) {
       sanitized[key] = obj[key];
     }
   }

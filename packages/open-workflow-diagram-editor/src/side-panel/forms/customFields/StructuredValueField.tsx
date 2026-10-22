@@ -54,7 +54,7 @@ export function parseText(text: string, format: ContentFormat): unknown {
 
 export function StructuredValueField({ field, id }: StructuredValueFieldProps) {
   const { control, getValues, getFieldState } = useFormContext<Record<string, unknown>>();
-  const { isReadOnly } = useTaskFormContext();
+  const { isReadOnly, validateField } = useTaskFormContext();
   const errorMessage = useFieldError(field.path);
 
   // Watch defaultValues identity: it changes on every form.reset()
@@ -145,7 +145,10 @@ export function StructuredValueField({ field, id }: StructuredValueFieldProps) {
               id={id}
               value={text}
               onChange={handleChange}
-              onBlur={rhfField.onBlur}
+              onBlur={() => {
+                rhfField.onBlur();
+                validateField?.(field.path);
+              }}
               disabled={isReadOnly}
               readOnly={isReadOnly}
               className="dec-form-scrollable-textarea dec-form-structured-value-textarea"

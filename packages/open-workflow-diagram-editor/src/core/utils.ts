@@ -20,3 +20,11 @@
 export function isObjectNotArray(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
+
+/**
+ * Returns false for keys that could reach inherited object members and
+ * cause prototype pollution (__proto__, prototype, constructor).
+ */
+export function isSafeKey(key: string): boolean {
+  return key !== "__proto__" && key !== "prototype" && key !== "constructor";
+}

@@ -16,12 +16,14 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  forEachField,
   computeSentinelDefaults,
   getNestedValue,
   hasValue,
   filterReadOnlyFields,
   collectFormListPaths,
   collectValueMapFields,
+  valueMapModelValue,
   collectWholeValuePaths,
 } from "../../../src/side-panel/forms/taskFormContext";
 import { getFormFieldsForNodeType } from "../../../src/core";
@@ -309,6 +311,70 @@ describe("filterReadOnlyFields — one-of fields", () => {
 });
 
 // ---------------------------------------------------------------------------
+// forEachField
+// ---------------------------------------------------------------------------
+
+describe("forEachField", () => {
+  const leaf = (path: string): FormFieldDescriptor => ({
+    kind: "string",
+    path,
+    label: path,
+    required: false,
+    multiline: false,
+    isRuntimeExpression: false,
+  });
+
+  const tree: FormFieldDescriptor[] = [
+    leaf("top"),
+    {
+      kind: "object",
+      path: "obj",
+      label: "Obj",
+      required: false,
+      children: [leaf("obj.child")],
+    },
+    {
+      kind: "section",
+      path: COMMON_FIELDS_PATH,
+      label: "Common",
+      required: false,
+      children: [leaf("if")],
+    },
+    {
+      kind: "one-of",
+      path: "choice",
+      label: "Choice",
+      required: false,
+      variants: [
+        { label: "A", fields: [leaf("choice.a")], matchesData: () => true, constWrites: {} },
+        { label: "B", fields: [leaf("choice.b")], matchesData: () => false, constWrites: {} },
+      ],
+    },
+  ];
+
+  it("visits parents before their children, entering objects, sections and every variant", () => {
+    const visited: string[] = [];
+    forEachField(tree, (field) => visited.push(field.path));
+    expect(visited).toEqual([
+      "top",
+      "obj",
+      "obj.child",
+      COMMON_FIELDS_PATH,
+      "if",
+      "choice",
+      "choice.a",
+      "choice.b",
+    ]);
+  });
+
+  it("does nothing for an empty list", () => {
+    const visited: string[] = [];
+    forEachField([], (field) => visited.push(field.path));
+    expect(visited).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // collectFormListPaths
 // ---------------------------------------------------------------------------
 
@@ -448,6 +514,45 @@ describe("collectValueMapFields", () => {
       { kind: "enum", path: "mode", label: "Mode", required: false, options: ["a", "b"] },
     ];
     expect(collectValueMapFields(fields)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// valueMapModelValue
+// ---------------------------------------------------------------------------
+
+describe("valueMapModelValue", () => {
+  const withInner: EnumField = {
+    kind: "enum",
+    path: "catch.retry.backoff",
+    label: "Backoff",
+    required: false,
+    options: ["constant"],
+    valueMap: { constant: { constant: {} } },
+    innerObjectFormat: "yaml",
+  };
+  const withoutInner: EnumField = {
+    kind: "enum",
+    path: "mode",
+    label: "Mode",
+    required: false,
+    options: ["fast"],
+    valueMap: { fast: { speed: "fast" } },
+  };
+
+  it.each([
+    ["an empty key", withInner, "", {}, undefined],
+    [
+      "an inner object format",
+      withInner,
+      "constant",
+      { delay: "PT1S" },
+      { constant: { delay: "PT1S" } },
+    ],
+    ["no inner object format", withoutInner, "fast", {}, { speed: "fast" }],
+    ["an unknown key without inner object format", withoutInner, "slow", {}, undefined],
+  ])("handles %s", (_label, field, key, inner, expected) => {
+    expect(valueMapModelValue(field, key, inner)).toEqual(expected);
   });
 });
 

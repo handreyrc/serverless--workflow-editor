@@ -34,7 +34,7 @@ import type { ContentFormat } from "./workflowSdk";
 
 export const CATCH_CONTAINER_NODE_TYPE = "catch-container";
 
-const NODE_TYPE_TO_DEF: Readonly<Record<string, string>> = {
+export const NODE_TYPE_TO_DEF: Readonly<Record<string, string>> = {
   [GraphNodeType.Call]: "callTask",
   [GraphNodeType.Do]: "doTask",
   [GraphNodeType.Emit]: "emitTask",

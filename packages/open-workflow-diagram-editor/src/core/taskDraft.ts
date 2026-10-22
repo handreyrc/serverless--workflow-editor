@@ -16,6 +16,7 @@
 
 import { ROOT_ONE_OF_PATH } from "./schemaToFormFields";
 import { getTaskTypeKey } from "./taskTypes";
+import { isSafeKey } from "./utils";
 
 /**
  * Flattens a task object into a dot-notation record (`with.endpoint.uri`), the shape the panel's
@@ -60,9 +61,7 @@ export function flattenTask(
 
 export function setNestedPath(obj: Record<string, unknown>, dotPath: string, value: unknown): void {
   const parts = dotPath.split(".");
-  if (
-    parts.some((part) => part === "__proto__" || part === "prototype" || part === "constructor")
-  ) {
+  if (parts.some((part) => !isSafeKey(part))) {
     return;
   }
   let current = obj;
@@ -90,6 +89,7 @@ export function unflattenValues(flat: Record<string, unknown>): Record<string, u
   for (const [dotPath, value] of Object.entries(flat)) {
     if (value === undefined || value === null || value === "") continue;
     const parts = dotPath.split(".");
+    if (parts.some((part) => !isSafeKey(part))) continue;
     let current = result;
     for (let i = 0; i < parts.length - 1; i++) {
       const part = parts[i]!;
@@ -267,14 +267,6 @@ function isDirtyPath(dotPath: string, dirtyPaths: Set<string>): boolean {
     if (dirty.startsWith(dotPath + ".")) return true;
   }
   return false;
-}
-
-/**
- * Returns false for path segments that could reach inherited object keys and
- * cause prototype pollution (__proto__, prototype, constructor).
- */
-function isSafeKey(key: string): boolean {
-  return key !== "__proto__" && key !== "prototype" && key !== "constructor";
 }
 
 // The value at a path within `obj`, or `undefined` when any step is not an object.

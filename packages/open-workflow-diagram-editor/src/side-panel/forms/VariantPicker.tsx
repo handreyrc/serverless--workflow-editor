@@ -51,7 +51,7 @@ export function VariantPicker({
 }) {
   const { t } = useI18n();
   const { isReadOnly, taskData } = useTaskFormContext();
-  const { getValues, setValue, register } = useFormContext<Record<string, unknown>>();
+  const { getValues, setValue, register, clearErrors } = useFormContext<Record<string, unknown>>();
   const sentinelPath = toSentinelPath(field.path);
   const selectedVariantIdx = useSelectedVariant(field);
 
@@ -118,7 +118,8 @@ export function VariantPicker({
       // Paths exclusive to the old variant: clear them silently (no dirty
       // needed — dirty is tracked via the sentinel).
       const newPaths = [...newKindByPath.keys()];
-      for (const path of currentKindByPath.keys()) {
+      const pathsToClear = [...currentKindByPath.keys()];
+      for (const path of pathsToClear) {
         const overlapsNewVariant =
           newKindByPath.has(path) ||
           newPaths.some((p) => p.startsWith(`${path}.`) || path.startsWith(`${p}.`));
@@ -126,12 +127,16 @@ export function VariantPicker({
           setValue(path, undefined, { shouldDirty: false });
         }
       }
+      if (pathsToClear.length > 0) {
+        clearErrors(pathsToClear);
+      }
     },
     [
       selectedVariantIdx,
       field.variants,
       getValues,
       setValue,
+      clearErrors,
       sentinelPath,
       variantSnapshotsForField,
     ],

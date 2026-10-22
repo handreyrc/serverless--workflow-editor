@@ -39,7 +39,7 @@ export type McpProtocolVersionFieldProps = {
 
 export function McpProtocolVersionField({ field, id }: McpProtocolVersionFieldProps) {
   const { control } = useFormContext<Record<string, unknown>>();
-  const { isReadOnly } = useTaskFormContext();
+  const { isReadOnly, validateField } = useTaskFormContext();
   const { t } = useI18n();
   const errorMessage = useFieldError(field.path);
 
@@ -57,7 +57,10 @@ export function McpProtocolVersionField({ field, id }: McpProtocolVersionFieldPr
                 : String(rhfField.value)
             }
             onChange={rhfField.onChange}
-            onBlur={rhfField.onBlur}
+            onBlur={() => {
+              rhfField.onBlur();
+              validateField?.(field.path);
+            }}
             name={rhfField.name}
             pattern={MCP_PROTOCOL_VERSION_PATTERN}
             disabled={isReadOnly}
