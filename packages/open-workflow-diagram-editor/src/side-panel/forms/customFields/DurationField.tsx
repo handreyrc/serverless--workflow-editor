@@ -40,7 +40,7 @@ export type DurationFieldProps = {
 
 export function DurationField({ field, id }: DurationFieldProps) {
   const { control } = useFormContext<Record<string, unknown>>();
-  const { isReadOnly } = useTaskFormContext();
+  const { isReadOnly, validateField } = useTaskFormContext();
   const { t } = useI18n();
   const errorMessage = useFieldError(field.path);
 
@@ -58,7 +58,10 @@ export function DurationField({ field, id }: DurationFieldProps) {
                 : String(rhfField.value)
             }
             onChange={rhfField.onChange}
-            onBlur={rhfField.onBlur}
+            onBlur={() => {
+              rhfField.onBlur();
+              validateField?.(field.path);
+            }}
             name={rhfField.name}
             pattern={ISO_8601_DURATION_PATTERN}
             title={t("sidebar.duration.title")}

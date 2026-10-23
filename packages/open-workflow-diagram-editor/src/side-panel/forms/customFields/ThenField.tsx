@@ -45,7 +45,7 @@ export type ThenFieldProps = {
 export function ThenField({ field, id }: ThenFieldProps) {
   const { t } = useI18n();
   const { control } = useFormContext<Record<string, unknown>>();
-  const { isReadOnly, siblingTaskNames } = useTaskFormContext();
+  const { isReadOnly, siblingTaskNames, validateField } = useTaskFormContext();
   const errorMessage = useFieldError(field.path);
 
   return (
@@ -63,7 +63,10 @@ export function ThenField({ field, id }: ThenFieldProps) {
               id={id}
               readOnly
               value={(rhfField.value as string) || "—"}
-              onBlur={rhfField.onBlur}
+              onBlur={() => {
+                rhfField.onBlur();
+                validateField?.(field.path);
+              }}
               name={rhfField.name}
               aria-label={field.label}
               aria-invalid={errorMessage !== undefined || undefined}

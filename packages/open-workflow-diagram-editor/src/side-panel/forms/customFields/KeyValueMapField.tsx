@@ -21,6 +21,7 @@ import { useI18n } from "@openworkflowspec/i18n";
 import { Input } from "../ui/input";
 import type { MapField } from "../../../core/schemaToFormFields";
 import { useTaskFormContext } from "../taskFormContext";
+import { useFieldError, FieldWithError } from "./fieldHelpers";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -136,7 +137,8 @@ export type KeyValueMapFieldProps = {
  */
 export function KeyValueMapField({ field, showLabel = true }: KeyValueMapFieldProps) {
   const { t } = useI18n();
-  const { isReadOnly, taskData } = useTaskFormContext();
+  const { isReadOnly, taskData, validateField } = useTaskFormContext();
+  const errorMessage = useFieldError(field.path);
   // Cast to untyped form to allow dynamic dot-notation path writes.
   // react-hook-form's path inference over Record<string,unknown> can produce
   // overly-narrow types for runtime-composed key strings.
@@ -238,8 +240,9 @@ export function KeyValueMapField({ field, showLabel = true }: KeyValueMapFieldPr
         clearKey(current.key);
       }
       setRows((prev) => prev.filter((r) => r.id !== id));
+      validateField?.(field.path);
     },
-    [clearKey],
+    [clearKey, validateField, field.path],
   );
 
   // ── Count badge ───────────────────────────────────────────────────────────
@@ -280,18 +283,27 @@ export function KeyValueMapField({ field, showLabel = true }: KeyValueMapFieldPr
         </div>
       )}
 
-      {rows.length > 0 && (
-        <div className="dec-map-rows">
-          {rows.map((row) => (
-            <MapRow
-              key={row.id}
-              row={row}
-              onUpdate={(newKey, newValue) => updateRow(row.id, newKey, newValue)}
-              onDelete={() => deleteRow(row.id)}
-            />
-          ))}
-        </div>
-      )}
+      <FieldWithError errorMessage={errorMessage}>
+        {rows.length > 0 ? (
+          <div className="dec-map-rows">
+            {rows.map((row) => (
+              <MapRow
+                key={row.id}
+                row={row}
+                onUpdate={(newKey, newValue) => updateRow(row.id, newKey, newValue)}
+                onDelete={() => deleteRow(row.id)}
+                onBlur={() => {
+                  if (row.key !== "") {
+                    validateField?.(`${field.path}.${row.key}`);
+                  }
+                  validateField?.(field.path);
+                }}
+                hasError={errorMessage !== undefined}
+              />
+            ))}
+          </div>
+        ) : null}
+      </FieldWithError>
 
       <div className="dec-map-add-btn-wrap">
         <button
@@ -316,11 +328,17 @@ export function MapRow({
   row,
   onUpdate,
   onDelete,
+  onBlur,
+  hasError,
   valueClassName,
 }: {
   row: MapEntry;
   onUpdate: (key: string, value: string) => void;
   onDelete: () => void;
+  /** Called when either input loses focus; triggers validation for this entry. */
+  onBlur?: () => void;
+  /** When true, marks both inputs aria-invalid (map-level error is present). */
+  hasError?: boolean;
   /** Extra CSS class(es) appended to the value input, e.g. for expression styling. */
   valueClassName?: string;
 }) {
@@ -334,14 +352,18 @@ export function MapRow({
         value={row.key}
         placeholder={t("sidebar.map.keyPlaceholder")}
         onChange={(e) => onUpdate(e.target.value, serializedValue)}
+        onBlur={onBlur}
         aria-label={t("sidebar.map.keyLabel")}
+        aria-invalid={hasError || undefined}
       />
       <Input
         className={`dec-map-value-input${valueClassName ? ` ${valueClassName}` : ""}`}
         value={serializedValue}
         placeholder={t("sidebar.map.valuePlaceholder")}
         onChange={(e) => onUpdate(row.key, e.target.value)}
+        onBlur={onBlur}
         aria-label={t("sidebar.map.valueLabel")}
+        aria-invalid={hasError || undefined}
       />
       <button
         type="button"

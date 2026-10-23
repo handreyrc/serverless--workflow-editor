@@ -24,7 +24,7 @@
  * initialise its rows from it rather than from the (stale) committed taskData.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import * as React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -256,5 +256,48 @@ describe("KeyValueMapField — variant-switch restore", () => {
       output?: { as?: Record<string, unknown> };
     };
     expect(dumpObj.output?.as?.newKey).toBeUndefined();
+  });
+});
+
+describe("KeyValueMapField — field-level validation", () => {
+  function ValidationTester({ validateField }: { validateField: (path: string) => void }) {
+    const form = useForm<Record<string, unknown>>({
+      defaultValues: { output: { as: { city: "Paris" } } },
+    });
+    React.useLayoutEffect(() => {
+      form.setError("output.as", { type: "schema", message: "map is invalid" });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    return (
+      <I18nProvider locale="en" dictionaries={{ en }}>
+        <TaskFormContext.Provider
+          value={{ isReadOnly: false, siblingTaskNames: [], taskData: {}, validateField }}
+        >
+          <FormProvider {...form}>
+            <KeyValueMapField field={mapField} />
+          </FormProvider>
+        </TaskFormContext.Provider>
+      </I18nProvider>
+    );
+  }
+
+  it("shows the map-level error and marks both inputs invalid", async () => {
+    render(<ValidationTester validateField={vi.fn()} />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("map is invalid");
+    expect(screen.getByDisplayValue("city")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByDisplayValue("Paris")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("validates the entry and the map on blur", async () => {
+    const validateField = vi.fn();
+    const user = userEvent.setup();
+    render(<ValidationTester validateField={validateField} />);
+
+    await user.click(screen.getByDisplayValue("Paris"));
+    await user.tab();
+
+    expect(validateField).toHaveBeenCalledWith("output.as.city");
+    expect(validateField).toHaveBeenCalledWith("output.as");
   });
 });

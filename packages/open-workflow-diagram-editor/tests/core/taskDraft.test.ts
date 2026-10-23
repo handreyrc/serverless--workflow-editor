@@ -21,6 +21,18 @@ import { ROOT_ONE_OF_PATH } from "../../src/core";
 import { SET_EXAMPLE_WORKFLOW } from "../fixtures/workflows";
 
 describe("unflattenValues", () => {
+  it.each(["__proto__.polluted", "a.__proto__.polluted", "a.prototype.x", "constructor.x"])(
+    "skips the unsafe path %s without polluting prototypes",
+    (path) => {
+      expect(unflattenValues({ [path]: "x", call: "http" })).toEqual({ call: "http" });
+      expect(({} as Record<string, unknown>)["polluted"]).toBeUndefined();
+    },
+  );
+
+  it("keeps keys that only resemble unsafe names", () => {
+    expect(unflattenValues({ "a.Constructor": "x" })).toEqual({ a: { Constructor: "x" } });
+  });
+
   it("reconstructs a single-level object", () => {
     expect(unflattenValues({ call: "http" })).toEqual({ call: "http" });
   });

@@ -36,7 +36,7 @@ export type ScrollableTextFieldProps = {
 
 export function ScrollableTextField({ field, id }: ScrollableTextFieldProps) {
   const { control } = useFormContext<Record<string, unknown>>();
-  const { isReadOnly } = useTaskFormContext();
+  const { isReadOnly, validateField } = useTaskFormContext();
   const errorMessage = useFieldError(field.path);
 
   const placeholder = field.placeholder ?? (field.isRuntimeExpression ? "${...}" : undefined);
@@ -51,6 +51,10 @@ export function ScrollableTextField({ field, id }: ScrollableTextFieldProps) {
             {...rhfField}
             id={id}
             value={typeof rhfField.value === "string" ? rhfField.value : ""}
+            onBlur={() => {
+              rhfField.onBlur();
+              validateField?.(field.path);
+            }}
             disabled={isReadOnly}
             readOnly={isReadOnly}
             placeholder={placeholder}

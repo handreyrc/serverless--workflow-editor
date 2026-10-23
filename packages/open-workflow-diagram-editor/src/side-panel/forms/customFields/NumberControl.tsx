@@ -39,7 +39,7 @@ export type NumberControlProps = {
 
 export function NumberControl({ field, id }: NumberControlProps) {
   const { control, clearErrors } = useFormContext<Record<string, unknown>>();
-  const { isReadOnly } = useTaskFormContext();
+  const { isReadOnly, validateField } = useTaskFormContext();
   const errorMessage = useFieldError(field.path);
 
   return (
@@ -71,7 +71,10 @@ export function NumberControl({ field, id }: NumberControlProps) {
                 }
               }
             }}
-            onBlur={rhfField.onBlur}
+            onBlur={() => {
+              rhfField.onBlur();
+              validateField?.(field.path);
+            }}
             name={rhfField.name}
             disabled={isReadOnly}
             readOnly={isReadOnly}

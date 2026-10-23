@@ -91,6 +91,20 @@ export function getInnerObjectForPath(
   }
 }
 
+/**
+ * Inner object payload for a valueMap-backed enum selection.
+ * Returns `{}` when no key is selected or the field has no inner object format,
+ * and `null` when the stored payload text cannot be parsed.
+ */
+export function getValueMapInnerObject(
+  field: EnumField,
+  key: string,
+): Record<string, unknown> | null {
+  return key && field.innerObjectFormat !== undefined
+    ? getInnerObjectForPath(field.path, field.innerObjectFormat)
+    : {};
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -141,7 +155,7 @@ export type EnumControlProps = {
 
 export function EnumControl({ field, id }: EnumControlProps) {
   const { control, getValues } = useFormContext<Record<string, unknown>>();
-  const { isReadOnly, taskData } = useTaskFormContext();
+  const { isReadOnly, taskData, validateField } = useTaskFormContext();
   const { t } = useI18n();
   const errorMessage = useFieldError(field.path);
   const hasValueMap = field.valueMap !== undefined;
@@ -255,6 +269,7 @@ export function EnumControl({ field, id }: EnumControlProps) {
             }
             setSelectedKey(val ?? "");
           }
+          validateField?.(field.path);
         }
 
         function handleInnerTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -319,7 +334,10 @@ export function EnumControl({ field, id }: EnumControlProps) {
                         ? t("sidebar.form.selectOption")
                         : "—")
                   }
-                  onBlur={rhfField.onBlur}
+                  onBlur={() => {
+                    rhfField.onBlur();
+                    validateField?.(field.path);
+                  }}
                   name={rhfField.name}
                   aria-label={field.label}
                   aria-invalid={errorMessage !== undefined || undefined}
