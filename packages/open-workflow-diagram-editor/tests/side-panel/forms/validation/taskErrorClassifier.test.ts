@@ -76,7 +76,7 @@ function classify(errors: ErrorObject[] | null | undefined, values: Record<strin
 
 describe("classifyTaskErrors", () => {
   it.each([null, undefined, []])("returns no errors for %j", (errors) => {
-    expect(classify(errors)).toEqual({ fieldErrors: {}, levelErrors: {} });
+    expect(classify(errors)).toEqual({ fieldErrors: {}, levelErrors: {}, unplacedErrors: {} });
   });
 
   describe("field errors", () => {
@@ -136,9 +136,25 @@ describe("classifyTaskErrors", () => {
     it.each(["type", "pattern", "format", "enum", "const", "minLength", "maxLength", "minimum"])(
       "drops a %s error on a container, since it describes a value",
       (keyword) => {
-        expect(classify([error(keyword, "/obj")])).toEqual({ fieldErrors: {}, levelErrors: {} });
+        const params = keyword === "type" ? { type: "string" } : {};
+        expect(classify([error(keyword, "/obj", params)])).toEqual({
+          fieldErrors: {},
+          levelErrors: {},
+          unplacedErrors: {},
+        });
       },
     );
+
+    it.each([
+      { name: "object", params: { type: "object" } },
+      { name: "object among others", params: { type: ["object", "null"] } },
+    ])("keeps a type error saying a container is not an $name", ({ params }) => {
+      // A scalar where an object belongs (`obj: "x"`): dropping it would let Apply pass unwarned.
+      const result = classify([error("type", "/obj", params, "must be object")], { obj: "x" });
+
+      expect(result.levelErrors).toEqual({ obj: "must be object" });
+      expect(result.unplacedErrors).toEqual({});
+    });
 
     it("places a missing container on the container itself", () => {
       const result = classify([missing("", "obj")]);
@@ -164,11 +180,15 @@ describe("classifyTaskErrors", () => {
       { name: "if", errors: [error("if", "/obj")] },
       { name: "an error without a message", errors: [{ ...error("type", "/name"), message: "" }] },
     ])("drops $name", ({ errors }) => {
-      expect(classify(errors, { obj: { a: "x" } })).toEqual({ fieldErrors: {}, levelErrors: {} });
+      expect(classify(errors, { obj: { a: "x" } })).toEqual({
+        fieldErrors: {},
+        levelErrors: {},
+        unplacedErrors: {},
+      });
     });
   });
 
-  describe("untraced errors (presented in top error banner)", () => {
+  describe("untraced errors (listed in the footer)", () => {
     it.each([
       { name: "an unknown path", errors: [error("type", "/unknown")], expectedPath: "unknown" },
       {
@@ -181,10 +201,17 @@ describe("classifyTaskErrors", () => {
         errors: [error("type", "/obj/zzz/y")],
         expectedPath: "obj.zzz.y",
       },
-    ])("retains $name for the top error banner", ({ errors, expectedPath }) => {
+    ])("keeps $name as an unplaced error", ({ errors, expectedPath }) => {
       const result = classify(errors, { obj: { a: "x" } });
       expect(result.fieldErrors).toEqual({});
       expect(Object.keys(result.levelErrors)).toEqual([expectedPath]);
+      expect(result.unplacedErrors).toEqual(result.levelErrors);
+    });
+
+    it("does not mark an error on a container as unplaced", () => {
+      const result = classify([missing("", "obj")]);
+      expect(Object.keys(result.levelErrors)).toEqual(["obj"]);
+      expect(result.unplacedErrors).toEqual({});
     });
   });
 
@@ -195,7 +222,11 @@ describe("classifyTaskErrors", () => {
       error("type", "/do/0/a/call"),
       error("required", "/do/0/a", { missingProperty: "call" }),
     ])("drops the subtask error %j", (subtaskError) => {
-      expect(classify([subtaskError])).toEqual({ fieldErrors: {}, levelErrors: {} });
+      expect(classify([subtaskError])).toEqual({
+        fieldErrors: {},
+        levelErrors: {},
+        unplacedErrors: {},
+      });
     });
 
     it("keeps an error of the parent next to a subtask error", () => {
@@ -207,7 +238,11 @@ describe("classifyTaskErrors", () => {
 
   describe("optional sections", () => {
     it("drops a required error inside an empty optional section", () => {
-      expect(classify([missing("/optional", "a")])).toEqual({ fieldErrors: {}, levelErrors: {} });
+      expect(classify([missing("/optional", "a")])).toEqual({
+        fieldErrors: {},
+        levelErrors: {},
+        unplacedErrors: {},
+      });
     });
 
     it("keeps a required error inside a partly filled optional section", () => {
@@ -252,6 +287,7 @@ describe("classifyTaskErrors", () => {
       expect(classify([error("type", "/cases/0/a/zzz")])).toEqual({
         fieldErrors: {},
         levelErrors: {},
+        unplacedErrors: {},
       });
     });
   });

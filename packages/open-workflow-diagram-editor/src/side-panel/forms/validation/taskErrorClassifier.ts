@@ -26,9 +26,14 @@ export interface ClassifiedTaskErrors {
   fieldErrors: Record<string, string>;
   /** Errors shown at the top of the level that displays a container (`""` is the task root). */
   levelErrors: Record<string, string>;
+  /**
+   * The level errors whose path no level of the form shows (a subset of `levelErrors`, so they
+   * are counted once). They are listed with their path in the footer instead.
+   */
+  unplacedErrors: Record<string, string>;
 }
 
-/** Keywords that describe the structure of a container; value-shape errors on containers are branch noise. */
+/** Keywords that describe the structure of a container; other value-shape errors on containers are branch noise. */
 const CONTAINER_KEYWORDS: ReadonlySet<string> = new Set([
   "required",
   "minProperties",
@@ -50,6 +55,16 @@ function isAtOrBelow(path: string, base: string): boolean {
   return path === base || path.startsWith(`${base}.`);
 }
 
+/**
+ * A `type` error saying a container's value is not an object (a scalar where an object belongs,
+ * e.g. `for: "x"`). Any other type comes from a sibling `oneOf` branch, such as a string
+ * alternative, and says nothing about the object the user is editing.
+ */
+function isMalformedContainer(params: ErrorObject["params"]): boolean {
+  const expected = (params as { type?: unknown }).type;
+  return expected === "object" || (Array.isArray(expected) && expected.includes("object"));
+}
+
 /** Nearest field at or above the path: an exact match, or the owner of a whole value. */
 function findLeaf(path: string, view: ActiveFormView): string | undefined {
   let current = path;
@@ -64,6 +79,7 @@ function findLeaf(path: string, view: ActiveFormView): string | undefined {
 type Classification =
   | { kind: "field"; path: string }
   | { kind: "level"; path: string }
+  | { kind: "unplaced"; path: string }
   | { kind: "drop" };
 
 const DROP: Classification = { kind: "drop" };
@@ -89,7 +105,12 @@ function classifyInOrderedMap(path: string, view: ActiveFormView): Classificatio
   return undefined;
 }
 
-function classify(path: string, keyword: string, view: ActiveFormView): Classification {
+function classify(
+  path: string,
+  keyword: string,
+  params: ErrorObject["params"],
+  view: ActiveFormView,
+): Classification {
   const leaf = findLeaf(path, view);
   if (leaf !== undefined) return { kind: "field", path: leaf };
 
@@ -97,11 +118,14 @@ function classify(path: string, keyword: string, view: ActiveFormView): Classifi
   if (inMap !== undefined) return inMap;
 
   if (view.containers.has(path)) {
-    return CONTAINER_KEYWORDS.has(keyword) ? { kind: "level", path } : DROP;
+    const keep =
+      CONTAINER_KEYWORDS.has(keyword) || (keyword === "type" && isMalformedContainer(params));
+    return keep ? { kind: "level", path } : DROP;
   }
 
-  // Errors that cannot be traced back to fields or containers are kept as level / top-banner errors (D5, D9, D14).
-  return { kind: "level", path };
+  // Errors that cannot be traced back to fields or containers still block Apply, so they are kept
+  // and listed in the footer, as no level of the form shows them (D5, D9, D14).
+  return { kind: "unplaced", path };
 }
 
 function isInsideEmptyOptionalSection(
@@ -128,7 +152,7 @@ export function classifyTaskErrors(
   formValues: Record<string, unknown>,
   fields: FormFieldDescriptor[],
 ): ClassifiedTaskErrors {
-  const result: ClassifiedTaskErrors = { fieldErrors: {}, levelErrors: {} };
+  const result: ClassifiedTaskErrors = { fieldErrors: {}, levelErrors: {}, unplacedErrors: {} };
   if (!ajvErrors || ajvErrors.length === 0) return result;
 
   const optionalSections = buildOptionalSectionSet(fields);
@@ -147,11 +171,14 @@ export function classifyTaskErrors(
       continue;
     }
 
-    const placed = classify(path, error.keyword, view);
+    const placed = classify(path, error.keyword, error.params, view);
     if (placed.kind === "field") {
       result.fieldErrors[placed.path] ??= error.message;
     } else if (placed.kind === "level") {
       result.levelErrors[placed.path] ??= error.message;
+    } else if (placed.kind === "unplaced") {
+      result.levelErrors[placed.path] ??= error.message;
+      result.unplacedErrors[placed.path] ??= error.message;
     }
   }
 

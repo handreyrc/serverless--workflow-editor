@@ -17,6 +17,14 @@
 import type { TaskValidationResult } from "./taskLevelValidation";
 import type { TaskValidationState } from "./taskValidationContext";
 
+/** Counts the total unique error paths across field and level error maps. */
+export function countErrors(
+  fieldErrors: Record<string, string>,
+  levelErrors: Record<string, string>,
+): number {
+  return Object.keys(fieldErrors).length + Object.keys(levelErrors).length;
+}
+
 /**
  * Returns whether `handleApply` should proceed to commit after running validation.
  *
@@ -29,16 +37,13 @@ import type { TaskValidationState } from "./taskValidationContext";
  * - The result contains a non-bypassable valueMap payload error.
  */
 export function shouldBlockCommit(result: TaskValidationResult, wasAttempted: boolean): boolean {
-  const freshErrorCount =
-    Object.keys(result.fieldErrors).length + Object.keys(result.levelErrors).length;
-  if (freshErrorCount > 0 && !wasAttempted) return true;
+  if (countErrors(result.fieldErrors, result.levelErrors) > 0 && !wasAttempted) return true;
   if (result.hasUnparseableValueMapPayload) return true;
   return false;
 }
 
 export interface FooterValidationState {
   showErrorUI: boolean;
-  errorCount: number;
   applyLabelKey: "sidebar.form.apply" | "sidebar.form.applyAnyway";
   applyVariant: "default" | "destructive";
   isBypassable: boolean;
@@ -57,7 +62,6 @@ export function deriveFooterValidationState(
 
   return {
     showErrorUI: hasErrors,
-    errorCount,
     applyLabelKey: isBypassable ? "sidebar.form.applyAnyway" : "sidebar.form.apply",
     applyVariant: isBypassable ? "destructive" : "default",
     isBypassable,

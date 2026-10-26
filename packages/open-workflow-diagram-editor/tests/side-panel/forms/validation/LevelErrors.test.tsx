@@ -56,6 +56,7 @@ describe("LevelErrors", () => {
         {
           fieldErrors: {},
           levelErrors: { "listen.to": "Choose a listen strategy" },
+          unplacedErrors: {},
           hasUnparseableValueMapPayload: false,
         },
         true,
@@ -72,6 +73,7 @@ describe("LevelErrors", () => {
         {
           fieldErrors: {},
           levelErrors: {},
+          unplacedErrors: {},
           hasUnparseableValueMapPayload: false,
         },
         true,

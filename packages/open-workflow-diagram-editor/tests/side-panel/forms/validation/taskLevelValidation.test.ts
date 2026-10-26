@@ -125,6 +125,7 @@ describe("validateTaskForm", () => {
     expect(result).toEqual({
       fieldErrors: {},
       levelErrors: {},
+      unplacedErrors: {},
       hasUnparseableValueMapPayload: false,
     });
     expect(setError).not.toHaveBeenCalled();
@@ -236,6 +237,7 @@ describe("validateTaskForm", () => {
     expect(result).toEqual({
       fieldErrors: {},
       levelErrors: {},
+      unplacedErrors: {},
       hasUnparseableValueMapPayload: false,
     });
     expect(setError).not.toHaveBeenCalled();

@@ -38,7 +38,11 @@ function errorsOf(
 describe("collectTaskErrors", () => {
   describe("schema-valid tasks", () => {
     it.each(VALID_TASKS)("reports no error for $name", ({ nodeType, task }) => {
-      expect(errorsOf(nodeType, task)).toEqual({ fieldErrors: {}, levelErrors: {} });
+      expect(errorsOf(nodeType, task)).toEqual({
+        fieldErrors: {},
+        levelErrors: {},
+        unplacedErrors: {},
+      });
     });
   });
 
@@ -111,7 +115,7 @@ describe("collectTaskErrors", () => {
           call: "http",
           with: { method: "get", endpoint: "https://example.com", unknownKey: 1 },
         }),
-      ).toEqual({ fieldErrors: {}, levelErrors: {} });
+      ).toEqual({ fieldErrors: {}, levelErrors: {}, unplacedErrors: {} });
     });
 
     it("reports a wait that is neither a duration nor an object", () => {
@@ -125,7 +129,11 @@ describe("collectTaskErrors", () => {
     it.each(INVALID_SUBTASK_TASKS)(
       "does not validate the subtasks of $name",
       ({ nodeType, task }) => {
-        expect(errorsOf(nodeType, task)).toEqual({ fieldErrors: {}, levelErrors: {} });
+        expect(errorsOf(nodeType, task)).toEqual({
+          fieldErrors: {},
+          levelErrors: {},
+          unplacedErrors: {},
+        });
       },
     );
 
@@ -180,6 +188,7 @@ describe("collectTaskErrors", () => {
       expect(collectTaskErrors("run", values, fields)).toEqual({
         fieldErrors: {},
         levelErrors: {},
+        unplacedErrors: {},
       });
     });
 
@@ -206,7 +215,7 @@ describe("collectTaskErrors", () => {
     it("treats an empty optional section as absent", () => {
       expect(
         errorsOf("call", { call: "http", with: { method: "get", endpoint: "https://e.com" } }),
-      ).toEqual({ fieldErrors: {}, levelErrors: {} });
+      ).toEqual({ fieldErrors: {}, levelErrors: {}, unplacedErrors: {} });
     });
 
     it("never reports a sentinel or an internal path", () => {
@@ -221,6 +230,7 @@ describe("collectTaskErrors", () => {
       expect(collectTaskErrors("nonExistentType", { foo: "bar" })).toEqual({
         fieldErrors: {},
         levelErrors: {},
+        unplacedErrors: {},
       });
     });
   });

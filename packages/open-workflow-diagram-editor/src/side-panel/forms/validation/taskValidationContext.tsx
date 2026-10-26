@@ -16,6 +16,7 @@
 
 import * as React from "react";
 import type { TaskValidationResult } from "./taskLevelValidation";
+import { countErrors } from "./footerValidationState";
 
 export interface TaskValidationState {
   /** True after the first Apply click attempted validation (the "latch"). */
@@ -24,6 +25,8 @@ export interface TaskValidationState {
   fieldErrors: Record<string, string>;
   /** Container paths with level errors ("" = task root). */
   levelErrors: Record<string, string>;
+  /** The level errors no level of the form shows (a subset of `levelErrors`). */
+  unplacedErrors: Record<string, string>;
   /** True when an unparseable valueMap enum payload is present (non-bypassable). */
   hasUnparseableValueMapPayload: boolean;
 }
@@ -32,6 +35,7 @@ export const INITIAL_TASK_VALIDATION_STATE: TaskValidationState = {
   attempted: false,
   fieldErrors: {},
   levelErrors: {},
+  unplacedErrors: {},
   hasUnparseableValueMapPayload: false,
 };
 
@@ -68,6 +72,7 @@ export function TaskValidationProvider({ children }: { children: React.ReactNode
         attempted: attempted !== undefined ? attempted : prev.attempted,
         fieldErrors: result.fieldErrors,
         levelErrors: result.levelErrors,
+        unplacedErrors: result.unplacedErrors,
         hasUnparseableValueMapPayload: result.hasUnparseableValueMapPayload,
       }));
     },
@@ -75,7 +80,7 @@ export function TaskValidationProvider({ children }: { children: React.ReactNode
   );
 
   const errorCount = React.useMemo(
-    () => Object.keys(state.fieldErrors).length + Object.keys(state.levelErrors).length,
+    () => countErrors(state.fieldErrors, state.levelErrors),
     [state.fieldErrors, state.levelErrors],
   );
 
@@ -106,6 +111,17 @@ export function useTaskValidation(): TaskValidationContextValue {
   return context ?? DEFAULT_TASK_VALIDATION_CONTEXT;
 }
 
+/** Counts the level errors at or below `path` ("" = every level error). */
+export function countLevelErrorsUnder(levelErrors: Record<string, string>, path: string): number {
+  let count = 0;
+  for (const key of Object.keys(levelErrors)) {
+    if (path === "" || key === path || key.startsWith(`${path}.`)) {
+      count++;
+    }
+  }
+  return count;
+}
+
 /**
  * Returns level-error information for a container path:
  * - `message`: the error message on this container, if any
@@ -115,14 +131,8 @@ export function useLevelErrors(path: string): { message: string | undefined; cou
   const { taskValidation } = useTaskValidation();
   const levelErrors = taskValidation.levelErrors;
 
-  return React.useMemo(() => {
-    const message = levelErrors[path];
-    let count = 0;
-    for (const key of Object.keys(levelErrors)) {
-      if (path === "" || key === path || key.startsWith(`${path}.`)) {
-        count++;
-      }
-    }
-    return { message, count };
-  }, [levelErrors, path]);
+  return React.useMemo(
+    () => ({ message: levelErrors[path], count: countLevelErrorsUnder(levelErrors, path) }),
+    [levelErrors, path],
+  );
 }

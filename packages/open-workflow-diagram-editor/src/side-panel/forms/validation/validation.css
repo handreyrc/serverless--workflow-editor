@@ -34,4 +34,13 @@
   .dec-root.dark .dec-level-errors {
     @apply dec:bg-red-950/40 dec:text-red-300 dec:border-red-900/50;
   }
+  /* Errors on paths no level of the form shows, listed in the footer */
+  .dec-root .dec-unplaced-errors {
+    @apply dec:m-0 dec:p-0 dec:list-none dec:text-xs dec:font-medium dec:break-words;
+    color: var(--dec-error-accent, #dc2626);
+  }
+
+  .dec-root.dark .dec-unplaced-errors {
+    color: var(--dec-error-accent, #f87171);
+  }
 }

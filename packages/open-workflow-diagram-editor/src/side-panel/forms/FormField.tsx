@@ -314,6 +314,7 @@ function SingleValueOneOf({ field, value }: { field: OneOfField; value: PlainFie
           <FieldControl field={value} {...(controlId !== undefined ? { id: controlId } : {})} />
         )}
       </div>
+      <LevelErrors path={field.path} />
     </div>
   );
 }
@@ -332,11 +333,14 @@ function OneOfFieldRow({ field }: { field: OneOfField }) {
   // A single-variant one-of has nothing to pick, so its fields stand in for it.
   if (field.variants.length <= 1) {
     return (
-      <div className="dec-form-oneof-children">
-        {shownFields.map((child) => (
-          <FormField key={child.path} field={child} />
-        ))}
-      </div>
+      <>
+        <LevelErrors path={field.path} />
+        <div className="dec-form-oneof-children">
+          {shownFields.map((child) => (
+            <FormField key={child.path} field={child} />
+          ))}
+        </div>
+      </>
     );
   }
 
@@ -364,6 +368,7 @@ function OneOfFieldRow({ field }: { field: OneOfField }) {
   return (
     <div className="dec-form-oneof-group">
       <VariantPicker field={field} />
+      <LevelErrors path={field.path} />
       {shownFields.length > 0 && (
         <div className="dec-form-oneof-children">
           {shownFields.map((child) => (

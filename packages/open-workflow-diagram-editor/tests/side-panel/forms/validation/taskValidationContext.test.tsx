@@ -49,6 +49,7 @@ describe("taskValidationContext", () => {
         {
           fieldErrors: { "with.endpoint": "Required" },
           levelErrors: { auth: "Invalid auth" },
+          unplacedErrors: {},
           hasUnparseableValueMapPayload: false,
         },
         true,
@@ -83,6 +84,7 @@ describe("taskValidationContext", () => {
         {
           fieldErrors: { "with.endpoint": "Required" },
           levelErrors: {},
+          unplacedErrors: {},
           hasUnparseableValueMapPayload: true,
         },
         true,
@@ -121,6 +123,7 @@ describe("taskValidationContext", () => {
             "listen.to.one": "Invalid one branch",
             other: "Other container",
           },
+          unplacedErrors: {},
           hasUnparseableValueMapPayload: false,
         });
       });

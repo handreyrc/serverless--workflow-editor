@@ -100,10 +100,13 @@ describe("collapseBranchGroups", () => {
     expect(collapseBranchGroups(errors, new Map())).toEqual([kept]);
   });
 
-  it("drops a group whose several branches matched", () => {
+  it("keeps a group whose several branches matched as a group error", () => {
     const errors = [group("/x", "#/properties/x/oneOf", [0, 1])];
 
-    expect(collapseBranchGroups(errors, new Map())).toEqual([]);
+    const result = collapseBranchGroups(errors, new Map());
+
+    expect(result.map((e) => e.keyword)).toEqual([GROUP_KEYWORD]);
+    expect(result[0]?.instancePath).toBe("/x");
   });
 
   it("keeps the errors of a `$ref` branch when it is the one remaining branch", () => {
@@ -153,7 +156,10 @@ describe("collapseBranchGroups", () => {
     const outside = required("", "#/required", "name");
     const errors = [outside, group("/x", "#/properties/x/oneOf", [0, 1])];
 
-    expect(collapseBranchGroups(errors, new Map())).toEqual([outside]);
+    const result = collapseBranchGroups(errors, new Map());
+
+    expect(result[0]).toEqual(outside);
+    expect(result.map((e) => e.keyword)).toEqual(["required", GROUP_KEYWORD]);
   });
 
   it("does not mutate its input", () => {

@@ -117,8 +117,10 @@ function collapseGroup(
   const remaining = [...candidates].filter((id) => !ghosts.has(id));
   const rest = errors.filter((e) => e !== group && !members.includes(e) && !refErrors.includes(e));
 
-  // More than one branch matched: nothing the user can act on.
-  if ((group.params as { passingSchemas?: unknown }).passingSchemas != null) return rest;
+  // Multiple matching branches violate oneOf exclusivity.
+  if ((group.params as { passingSchemas?: unknown }).passingSchemas != null) {
+    return [...rest, { ...group, keyword: GROUP_KEYWORD }];
+  }
 
   const [only] = remaining;
   if (remaining.length === 1 && only !== undefined) {

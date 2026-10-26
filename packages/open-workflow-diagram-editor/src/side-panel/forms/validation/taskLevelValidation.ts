@@ -28,6 +28,8 @@ export interface TaskValidationResult {
   fieldErrors: Record<string, string>;
   /** Errors shown at a container / section / root level (D14). */
   levelErrors: Record<string, string>;
+  /** The level errors no level of the form shows; listed with their path in the footer. */
+  unplacedErrors: Record<string, string>;
   /** True when a valueMap-backed enum payload failed to parse (D6: non-bypassable). */
   hasUnparseableValueMapPayload: boolean;
 }
@@ -79,6 +81,7 @@ export function validateTaskForm(
     return {
       fieldErrors: {},
       levelErrors: {},
+      unplacedErrors: {},
       hasUnparseableValueMapPayload: false,
     };
   }
@@ -118,6 +121,7 @@ export function validateTaskForm(
   return {
     fieldErrors,
     levelErrors,
+    unplacedErrors: classified.unplacedErrors,
     hasUnparseableValueMapPayload,
   };
 }

@@ -330,6 +330,13 @@ export const INVALID_TASKS: InvalidTaskCase[] = [
     levelPaths: [],
   },
   {
+    name: "for with a scalar value",
+    nodeType: "for",
+    task: { for: "x", do: [] },
+    fieldPaths: [],
+    levelPaths: ["for"],
+  },
+  {
     name: "listen without events",
     nodeType: "listen",
     task: { listen: { to: {} } },

@@ -172,11 +172,12 @@ describe("NodeDetailsView", () => {
             {
               fieldErrors: {},
               levelErrors: { with: "schema level error" },
+              unplacedErrors: {},
               hasUnparseableValueMapPayload: false,
             },
             true,
           );
-        });
+        }, [recordValidationResult]);
         return <NodeDetailsView node={node} />;
       }
 
@@ -204,6 +205,7 @@ describe("NodeDetailsView", () => {
             {
               fieldErrors: {},
               levelErrors: { with: "schema level error" },
+              unplacedErrors: {},
               hasUnparseableValueMapPayload: false,
             },
             true,

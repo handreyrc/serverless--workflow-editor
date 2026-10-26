@@ -23,7 +23,8 @@ import { isObjectNotArray } from "../../../core/utils";
 import { drillLabel, type DrillTarget } from "./drill";
 import { useDrill } from "./DrillContext";
 import { collectJsonPaths, filterReadOnlyFields, useTaskFormContext } from "../taskFormContext";
-import { useLevelErrors } from "../validation";
+import { countLevelErrorsUnder, useTaskValidation } from "../validation";
+import { COMMON_FIELDS_PATH } from "@/core/schemaToFormFields";
 
 /**
  * Displays a clickable row for a section, object, map or one-of, showing:
@@ -88,7 +89,13 @@ export function DrillRow({
     jsonPaths,
   );
   const changedCount = childPaths.reduce((sum, path) => sum + countChangedUnder(changed, path), 0);
-  const { count: levelErrorsCount } = useLevelErrors(field.path);
+  const { levelErrors } = useTaskValidation().taskValidation;
+  // The virtual "Common fields" section has no real path: its children keep their task paths.
+  const levelErrorPaths = field.path === COMMON_FIELDS_PATH ? childPaths : [field.path];
+  const levelErrorsCount = levelErrorPaths.reduce(
+    (sum, path) => sum + countLevelErrorsUnder(levelErrors, path),
+    0,
+  );
   const fieldErrorsCount = childPaths.reduce(
     (sum, path) => sum + countFieldErrors(get(errors, path)),
     0,
