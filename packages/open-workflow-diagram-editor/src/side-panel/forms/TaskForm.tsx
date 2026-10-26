@@ -37,7 +37,12 @@ import {
   VariantSnapshotsContext,
   type VariantSnapshots,
 } from "./taskFormContext";
-import { useWorkflowErrorsForForm, useFieldLevelValidation } from "./validation";
+import {
+  useWorkflowErrorsForForm,
+  useFieldLevelValidation,
+  LevelErrors,
+  useTaskValidation,
+} from "./validation";
 import { useEditSession } from "@/side-panel/EditSession";
 import { flattenTask, setNestedPath } from "@/core/taskDraft";
 import { SENTINEL_KEY, sentinelPath } from "./sentinels";
@@ -77,6 +82,8 @@ export function TaskForm({ nodeType, task, nodeId, taskReference }: TaskFormProp
     [nodeType, contentFormat],
   );
 
+  const { resetValidation } = useTaskValidation();
+
   // ── Reset form on node change ─────────────────────────────────────────────
   // Runs whenever nodeId changes — covers initial mount and switching nodes.
   // Pass the task as a nested object so RHF's defaultValues are stored with
@@ -86,6 +93,7 @@ export function TaskForm({ nodeType, task, nodeId, taskReference }: TaskFormProp
   // nested paths in _formValues, creating a mismatch that spuriously marks
   // sibling fields dirty.
   React.useEffect(() => {
+    resetValidation();
     const sentinelDefaults = computeSentinelDefaults(allFields, task as Record<string, unknown>);
     form.reset({
       ...(task as Record<string, unknown>),
@@ -95,7 +103,7 @@ export function TaskForm({ nodeType, task, nodeId, taskReference }: TaskFormProp
     // current task snapshot. External task mutations (undo/redo) are handled
     // by the effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodeId, form]);
+  }, [nodeId, form, resetValidation]);
 
   // ── Reset when the model changes externally (undo/redo, same node) ────────
   // Fires when `task` identity or `allFields` changes while `nodeId` stays the same.
@@ -112,6 +120,7 @@ export function TaskForm({ nodeType, task, nodeId, taskReference }: TaskFormProp
     prevTaskRef.current = task;
 
     if (nodeChanged) return;
+    resetValidation();
     // Preserve the current sentinel selections (e.g. from a just-completed Apply)
     // so that variant combos stay on the user's chosen variant when the task has
     // no value for a field (cleared/empty). Extract from the live form values.
@@ -148,7 +157,7 @@ export function TaskForm({ nodeType, task, nodeId, taskReference }: TaskFormProp
       }
     }
     form.reset(resetVals);
-  }, [task, nodeId, form, allFields]);
+  }, [task, nodeId, form, allFields, resetValidation]);
 
   // ── One-of variant snapshots ──────────────────────────────────────────────
   // Held at TaskForm level (survives drill unmount). Cleared on task change.
@@ -168,7 +177,12 @@ export function TaskForm({ nodeType, task, nodeId, taskReference }: TaskFormProp
   );
 
   // ── Field-level schema validation on blur / edit ─────────────────────────
-  const { validateField } = useFieldLevelValidation(nodeType, form, isReadOnly, allFields);
+  const { validateField, revalidateIfAttempted } = useFieldLevelValidation(
+    nodeType,
+    form,
+    isReadOnly,
+    allFields,
+  );
 
   // ── Read-only: filter fields to only those with values ────────────────────
   const visibleFields = React.useMemo(() => {
@@ -213,6 +227,7 @@ export function TaskForm({ nodeType, task, nodeId, taskReference }: TaskFormProp
         siblingTaskNames,
         taskData: task as Record<string, unknown>,
         validateField,
+        revalidateIfAttempted,
       }}
     >
       <VariantSnapshotsContext.Provider value={variantSnapshots}>
@@ -235,6 +250,7 @@ export function TaskForm({ nodeType, task, nodeId, taskReference }: TaskFormProp
             )}
             <InlineLevelsContext.Provider value={navigation.inlineLevels}>
               <div className="dec-task-form-fields">
+                <LevelErrors path={navigation.drill.levelPath ?? ""} />
                 {navigation.levelOneOf !== undefined && (
                   <VariantPicker field={navigation.levelOneOf} />
                 )}

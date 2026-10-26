@@ -20,6 +20,7 @@ import userEvent from "@testing-library/user-event";
 import { SidePanel } from "../../src/side-panel/SidePanel";
 import { parseWorkflow } from "../../src/core/workflowSdk";
 import { renderWithProviders } from "../test-utils/render-helpers";
+import { applyButton } from "../test-utils";
 import { WORKFLOW_WITH_METADATA_JSON } from "../fixtures/workflows";
 
 describe("SidePanel", () => {
@@ -212,7 +213,7 @@ describe("SidePanel", () => {
       renderWithSelection();
 
       // Footer is always visible in edit mode; Apply starts disabled
-      expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
+      expect(applyButton()).toBeDisabled();
 
       // The set task's `set` field renders as a key-value map editor.
       // Clicking "Add property" adds a new row; typing into the key input
@@ -222,7 +223,7 @@ describe("SidePanel", () => {
       const keyInput = screen.getAllByLabelText(/entry key/i)[0]!;
       await user.type(keyInput, "myKey");
 
-      expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled();
+      expect(applyButton()).toBeEnabled();
       expect(screen.getByText(/changed/i)).toBeInTheDocument();
     });
   });

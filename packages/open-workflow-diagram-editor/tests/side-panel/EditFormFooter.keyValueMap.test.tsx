@@ -36,7 +36,7 @@ const { TaskForm } = await import("../../src/side-panel/forms/TaskForm");
 const { useDiagramEditorContext } = await import("../../src/store/DiagramEditorContext");
 const { RUN_PROCESS_TYPES_WORKFLOW } = await import("../fixtures/workflows");
 const { renderWithEditorProviders } = await import("../test-utils/render-helpers");
-const { nodeAt } = await import("../test-utils");
+const { nodeAt, clickApply } = await import("../test-utils");
 
 /** `transform`'s environment starts as `{ LOG_LEVEL: "info" }`. */
 const NODE_ID = "/do/transform";
@@ -76,7 +76,6 @@ const environment = () =>
     ?.script?.environment;
 const rowKeys = () =>
   screen.getAllByLabelText("Entry key").map((input) => (input as HTMLInputElement).value);
-const apply = (user: User) => user.click(screen.getByRole("button", { name: "Apply" }));
 const deleteRow = (user: User, index: number) =>
   user.click(screen.getAllByRole("button", { name: "Delete entry" })[index]!);
 
@@ -92,7 +91,7 @@ describe("removing key/value map entries and applying", () => {
     const user = await renderPanel();
 
     await deleteRow(user, 0);
-    await apply(user);
+    await clickApply(user);
 
     expect(environment()).toBeUndefined();
     expect(screen.queryAllByLabelText("Entry key")).toEqual([]);
@@ -102,11 +101,11 @@ describe("removing key/value map entries and applying", () => {
     const user = await renderPanel();
 
     await addRow(user, "NEW", "x");
-    await apply(user);
+    await clickApply(user);
     expect(rowKeys()).toEqual(["LOG_LEVEL", "NEW"]);
 
     await deleteRow(user, 1);
-    await apply(user);
+    await clickApply(user);
 
     expect(environment()).toEqual({ LOG_LEVEL: "info" });
     expect(rowKeys()).toEqual(["LOG_LEVEL"]);

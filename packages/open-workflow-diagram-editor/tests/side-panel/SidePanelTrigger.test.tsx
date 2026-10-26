@@ -82,16 +82,16 @@ describe("SidePanelTrigger", () => {
 
     expect(setSelectedNodeId).toHaveBeenCalledWith(null);
   });
-  });
+});
 
-  const { model, node } = editableTaskNode();
+const { model, node } = editableTaskNode();
 
-  function SidebarStateProbe() {
+function SidebarStateProbe() {
   const { open } = useSidebar();
   return <span data-testid="sidebar-open">{String(open)}</span>;
-  }
+}
 
-  describe("SidePanelTrigger navigation guard", () => {
+describe("SidePanelTrigger navigation guard", () => {
   const renderTrigger = (overrides = {}) => {
     const setSelectedNodeId = vi.fn();
 

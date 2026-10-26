@@ -43,6 +43,10 @@ export type TaskFormContextType = {
    * Handler to trigger schema validation for a specific field path on blur or interaction.
    */
   validateField?: (path: string) => void;
+  /**
+   * Triggers a whole-task revalidation if task-level validation was previously attempted.
+   */
+  revalidateIfAttempted?: () => void;
 };
 
 /**

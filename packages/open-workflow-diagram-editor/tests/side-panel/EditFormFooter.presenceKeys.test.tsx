@@ -35,7 +35,7 @@ const { EditFormFooter } = await import("../../src/side-panel/EditFormFooter");
 const { TaskForm } = await import("../../src/side-panel/forms/TaskForm");
 const { PRESENCE_KEY_SELECTORS_WORKFLOW } = await import("../fixtures/workflows");
 const { renderWithProviders } = await import("../test-utils/render-helpers");
-const { nodeAt, parseFixture } = await import("../test-utils");
+const { nodeAt, parseFixture, clickApply } = await import("../test-utils");
 
 const model = parseFixture(PRESENCE_KEY_SELECTORS_WORKFLOW);
 
@@ -102,7 +102,7 @@ describe("switching a presence-keyed selector and applying with nothing filled i
     for (const level of levels) await openLevel(user, level);
 
     await user.click(screen.getAllByRole("button", { name: option })[0]!);
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await clickApply(user);
 
     expect(committedAt(commitWorkflow, nodeId, path)).toEqual(expected);
   });

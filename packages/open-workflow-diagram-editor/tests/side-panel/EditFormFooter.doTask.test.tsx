@@ -38,7 +38,7 @@ const { EditFormFooter } = await import("../../src/side-panel/EditFormFooter");
 const { TaskForm } = await import("../../src/side-panel/forms/TaskForm");
 const { MANAGING_GITHUB_ISSUES_WORKFLOW } = await import("../fixtures/workflows");
 const { renderWithProviders } = await import("../test-utils/render-helpers");
-const { nodeAt, parseFixture } = await import("../test-utils");
+const { nodeAt, parseFixture, applyButton } = await import("../test-utils");
 
 /** A top-level do task with three children and a `then` pointing at a sibling. */
 const DO_NODE_ID = "/do/awaitForDevWork";
@@ -78,7 +78,6 @@ function renderPanel(task: DoTask, commitWorkflow = vi.fn()) {
   };
 }
 
-const apply = () => screen.getByRole("button", { name: "Apply" });
 const childNames = () =>
   within(screen.getByRole("list", { name: "Task list" }))
     .getAllByRole("listitem")
@@ -96,7 +95,7 @@ describe("do task form", () => {
     await act(async () => {});
 
     expect(childNames()).toEqual(["assign", "notify", "await"]);
-    expect(apply()).toBeDisabled();
+    expect(applyButton()).toBeDisabled();
   });
 
   it("commits an edited base field and leaves the child tasks untouched", async () => {
@@ -105,7 +104,7 @@ describe("do task form", () => {
     await openCommonFields(user);
 
     await user.type(screen.getByLabelText("if"), literal("${ .ready }"));
-    await user.click(apply());
+    await user.click(applyButton());
 
     const committed = committedTask(commitWorkflow);
     expect(committed.if).toBe("${ .ready }");
@@ -118,7 +117,7 @@ describe("do task form", () => {
     await act(async () => {});
 
     await user.click(screen.getByRole("button", { name: "end" }));
-    await user.click(apply());
+    await user.click(applyButton());
 
     const committed = committedTask(commitWorkflow);
     expect(committed.then).toBe("end");
@@ -142,7 +141,7 @@ describe("do task form", () => {
       await act(async () => {});
 
       expect(childNames()).toEqual(["assignToDev", "notify"]);
-      expect(apply()).toBeDisabled();
+      expect(applyButton()).toBeDisabled();
     });
 
     it("commits the new children, not the ones the panel opened with", async () => {
@@ -154,7 +153,7 @@ describe("do task form", () => {
       await act(async () => {});
       await openCommonFields(user);
       await user.type(screen.getByLabelText("if"), literal("${ .ready }"));
-      await user.click(apply());
+      await user.click(applyButton());
 
       expect(committedTask(commitWorkflow).do).toEqual(changedChildren().do);
     });

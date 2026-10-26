@@ -23,6 +23,7 @@ import { isObjectNotArray } from "../../../core/utils";
 import { drillLabel, type DrillTarget } from "./drill";
 import { useDrill } from "./DrillContext";
 import { collectJsonPaths, filterReadOnlyFields, useTaskFormContext } from "../taskFormContext";
+import { useLevelErrors } from "../validation";
 
 /**
  * Displays a clickable row for a section, object, map or one-of, showing:
@@ -87,7 +88,12 @@ export function DrillRow({
     jsonPaths,
   );
   const changedCount = childPaths.reduce((sum, path) => sum + countChangedUnder(changed, path), 0);
-  const errorCount = childPaths.reduce((sum, path) => sum + countFieldErrors(get(errors, path)), 0);
+  const { count: levelErrorsCount } = useLevelErrors(field.path);
+  const fieldErrorsCount = childPaths.reduce(
+    (sum, path) => sum + countFieldErrors(get(errors, path)),
+    0,
+  );
+  const errorCount = fieldErrorsCount + levelErrorsCount;
 
   const label = drillLabel(field, t);
   let summary: string;

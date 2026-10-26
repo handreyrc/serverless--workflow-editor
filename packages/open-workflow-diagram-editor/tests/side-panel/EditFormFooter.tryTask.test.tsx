@@ -39,7 +39,7 @@ const { EditFormFooter } = await import("../../src/side-panel/EditFormFooter");
 const { TaskForm } = await import("../../src/side-panel/forms/TaskForm");
 const { renderWithProviders, createMockContextValue } =
   await import("../test-utils/render-helpers");
-const { parseFixture, nodeAt } = await import("../test-utils");
+const { parseFixture, nodeAt, applyButton } = await import("../test-utils");
 const { leaveLevel, openLevel } = await import("../test-utils/drill-helpers");
 
 const { render: rtlRender } = await import("@testing-library/react");
@@ -125,7 +125,7 @@ describe("try task — backoff enum field", () => {
 
     await user.click(screen.getByRole("button", { name: "constant" }));
 
-    expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled();
+    expect(applyButton()).toBeEnabled();
   });
 
   it("committing a backoff change writes the discriminator object to the model", async () => {
@@ -134,7 +134,7 @@ describe("try task — backoff enum field", () => {
     await openRetry(user);
 
     await user.click(screen.getByRole("button", { name: "constant" }));
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await user.click(applyButton());
 
     expect(commitWorkflow).toHaveBeenCalledTimes(1);
     const committed = commitWorkflow.mock.calls[0]![0] as Specification.Workflow;
@@ -152,7 +152,7 @@ describe("try task — backoff enum field", () => {
     await openRetry(user);
 
     await user.click(screen.getByRole("button", { name: "constant" }));
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await user.click(applyButton());
 
     // After reset the combobox input must still show "constant", not "Select an option"
     expect(screen.getByDisplayValue("constant")).toBeInTheDocument();
@@ -178,7 +178,7 @@ describe("try task — backoff enum field", () => {
     await user.clear(textarea);
     await user.type(textarea, "multiplier: 2");
 
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await user.click(applyButton());
 
     expect(commitWorkflow).toHaveBeenCalledTimes(1);
     const committed = commitWorkflow.mock.calls[0]![0] as Specification.Workflow;
@@ -200,7 +200,7 @@ describe("try task — backoff enum field", () => {
     await user.clear(textarea);
     await user.type(textarea, "multiplier: 2");
 
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await user.click(applyButton());
 
     // After Apply+reset the textarea should still show the committed inner content
     expect(getBackoffTextarea().value).toBe("multiplier: 2");
@@ -247,7 +247,7 @@ describe("try task — backoff enum field", () => {
     // Switch to constant (stashes "multiplier: 2" for exponential)
     await user.click(screen.getByRole("button", { name: "constant" }));
     // Apply — commits "constant" as the backoff type
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await user.click(applyButton());
 
     // Now switch back to exponential — stash was cleared on Apply, so the
     // textarea should reflect the committed state (empty), not the stale stash.
@@ -300,7 +300,7 @@ describe("try task — backoff enum field", () => {
     const backoffClear = backoffInput.nextElementSibling as HTMLButtonElement;
 
     await user.click(backoffClear);
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await user.click(applyButton());
 
     expect(commitWorkflow).toHaveBeenCalledTimes(1);
     const committed = commitWorkflow.mock.calls[0]![0] as Specification.Workflow;
@@ -320,7 +320,7 @@ describe("try task — backoff enum field", () => {
     const backoffInput = screen.getAllByLabelText(/backoff/i)[0]!;
     const backoffClear = backoffInput.nextElementSibling as HTMLButtonElement;
     await user.click(backoffClear);
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await user.click(applyButton());
 
     expect(screen.getAllByDisplayValue("—").length).toBeGreaterThan(0);
   });
@@ -365,7 +365,7 @@ describe("try task — backoff clear with live re-render", () => {
     const backoffClear = backoffInput.nextElementSibling as HTMLButtonElement;
 
     await user.click(backoffClear);
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await user.click(applyButton());
 
     await act(async () => {});
     expect(screen.getAllByDisplayValue("—").length).toBeGreaterThan(0);
@@ -409,7 +409,7 @@ describe("try task — backoff clear with live re-render", () => {
     const backoffClear = backoffInput.nextElementSibling as HTMLButtonElement;
 
     await user.click(backoffClear);
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await user.click(applyButton());
 
     // With a rich inner object (rate, max.seconds), padRemovedPaths creates
     // leaf-level padding that reconstructs the backoff structure. The cleanup
@@ -431,7 +431,7 @@ describe("resolveTaskId — Catch node delegates to parent container id", () => 
     await openRetry(user);
 
     await user.click(screen.getByRole("button", { name: "constant" }));
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await user.click(applyButton());
 
     expect(commitWorkflow).toHaveBeenCalledTimes(1);
     const committed = commitWorkflow.mock.calls[0]![0] as Specification.Workflow;

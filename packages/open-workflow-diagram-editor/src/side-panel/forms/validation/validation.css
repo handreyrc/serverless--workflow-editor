@@ -1,0 +1,37 @@
+/*
+ * Copyright 2021-Present The Open Workflow Specification Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+@reference "../../../styles.css";
+
+@layer side-panel {
+  .dec-root .dec-footer-validation-counter {
+    @apply dec:text-xs dec:font-medium dec:whitespace-nowrap dec:overflow-hidden dec:text-ellipsis;
+    color: var(--dec-error-accent, #dc2626);
+  }
+
+  .dec-root.dark .dec-footer-validation-counter {
+    color: var(--dec-error-accent, #f87171);
+  }
+
+  /* Level errors in the form (D14, ST-5b) */
+  .dec-root .dec-level-errors {
+    @apply dec:flex dec:flex-col dec:gap-1 dec:mb-3 dec:p-2.5 dec:rounded-md dec:text-xs dec:font-medium dec:bg-red-50 dec:text-red-700 dec:border dec:border-red-200;
+  }
+
+  .dec-root.dark .dec-level-errors {
+    @apply dec:bg-red-950/40 dec:text-red-300 dec:border-red-900/50;
+  }
+}

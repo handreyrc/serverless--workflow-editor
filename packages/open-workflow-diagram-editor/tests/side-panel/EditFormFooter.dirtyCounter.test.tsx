@@ -34,7 +34,7 @@ import type { Specification } from "@openworkflowspec/sdk";
 import { EditFormFooter } from "../../src/side-panel/EditFormFooter";
 import { TaskForm } from "../../src/side-panel/forms/TaskForm";
 import { createMockContextValue, FormSpy, type FormRef } from "../test-utils/render-helpers";
-import { nodeAt, parseFixture } from "../test-utils";
+import { nodeAt, parseFixture, clickApply } from "../test-utils";
 import { useEditSession, EditSessionProvider } from "../../src/side-panel/EditSession";
 import { I18nProvider } from "@openworkflowspec/i18n";
 import { DiagramEditorContext } from "../../src/store/DiagramEditorContext";
@@ -246,7 +246,7 @@ describe("EditFormFooter — dirty counter after variant switch (regression)", (
     });
     await act(async () => {});
 
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await clickApply(user);
     expect(commitWorkflow).toHaveBeenCalledTimes(1);
 
     const committed = nodeAt(commitWorkflow.mock.calls[0]![0] as Specification.Workflow, NODE_ID)

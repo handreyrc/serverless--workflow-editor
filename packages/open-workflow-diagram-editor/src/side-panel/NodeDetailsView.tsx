@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import * as React from "react";
 import type * as RF from "@xyflow/react";
 import { dump } from "js-yaml";
 import { useI18n } from "@openworkflowspec/i18n";
@@ -43,7 +44,7 @@ export function NodeDetailsView({ node }: NodeDetailsViewProps) {
 
   const hasTask = task !== undefined && node.type !== undefined;
 
-  if (nodeErrors.length === 0 && !hasTask) {
+  if (errorItems.length === 0 && !hasTask) {
     return <p className="dec-sidebar-hint-text">{t("sidebar.noDetails")}</p>;
   }
 

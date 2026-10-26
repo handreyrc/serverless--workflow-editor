@@ -1,0 +1,65 @@
+/*
+ * Copyright 2021-Present The Open Workflow Specification Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import type { TaskValidationResult } from "./taskLevelValidation";
+import type { TaskValidationState } from "./taskValidationContext";
+
+/**
+ * Returns whether `handleApply` should proceed to commit after running validation.
+ *
+ * The decision is made from the freshly-computed `result` (not from React state,
+ * which has not updated yet) combined with `wasAttempted` — the snapshot of
+ * `taskValidation.attempted` captured at the start of the click handler.
+ *
+ * Commit is blocked when:
+ * - There are errors and this is the first Apply click (latch not yet set).
+ * - The result contains a non-bypassable valueMap payload error.
+ */
+export function shouldBlockCommit(result: TaskValidationResult, wasAttempted: boolean): boolean {
+  const freshErrorCount =
+    Object.keys(result.fieldErrors).length + Object.keys(result.levelErrors).length;
+  if (freshErrorCount > 0 && !wasAttempted) return true;
+  if (result.hasUnparseableValueMapPayload) return true;
+  return false;
+}
+
+export interface FooterValidationState {
+  showErrorUI: boolean;
+  errorCount: number;
+  applyLabelKey: "sidebar.form.apply" | "sidebar.form.applyAnyway";
+  applyVariant: "default" | "destructive";
+  isBypassable: boolean;
+}
+
+/**
+ * Derives the footer validation presentation state from the current task validation state.
+ * `errorCount` is passed in from the context so the count is never derived twice.
+ */
+export function deriveFooterValidationState(
+  taskValidation: TaskValidationState,
+  errorCount: number,
+): FooterValidationState {
+  const hasErrors = taskValidation.attempted && errorCount > 0;
+  const isBypassable = hasErrors && !taskValidation.hasUnparseableValueMapPayload;
+
+  return {
+    showErrorUI: hasErrors,
+    errorCount,
+    applyLabelKey: isBypassable ? "sidebar.form.applyAnyway" : "sidebar.form.apply",
+    applyVariant: isBypassable ? "destructive" : "default",
+    isBypassable,
+  };
+}

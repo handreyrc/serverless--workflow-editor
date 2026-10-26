@@ -33,6 +33,7 @@ import {
   useSelectedVariant,
   variantFieldsOf,
 } from "./taskFormContext";
+import { LevelErrors } from "./validation";
 import { FieldLabel, HelpTooltip } from "./FieldLabel";
 import { VariantPicker } from "./VariantPicker";
 import { KeyValueMapField } from "./customFields/KeyValueMapField";
@@ -243,6 +244,7 @@ function InlineObjectGroup({ field }: { field: ObjectField }) {
         required={field.required}
         {...(field.description !== undefined ? { description: field.description } : {})}
       />
+      <LevelErrors path={field.path} />
       {/* Below an inline object, objects drill, unless one is its only child. */}
       <InlineLevelsContext.Provider value={isInlineLevel(visibleChildren)}>
         {visibleChildren.map((child) => (

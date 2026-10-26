@@ -26,13 +26,13 @@
 
 import { describe, it, expect, vi } from "vitest";
 import * as React from "react";
-import { act, render, screen } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Specification } from "@openworkflowspec/sdk";
 import { EditFormFooter } from "../../src/side-panel/EditFormFooter";
 import { TaskForm } from "../../src/side-panel/forms/TaskForm";
 import { createMockContextValue, FormSpy, type FormRef } from "../test-utils/render-helpers";
-import { nodeAt, parseFixture } from "../test-utils";
+import { nodeAt, parseFixture, clickApply } from "../test-utils";
 import { EditSessionProvider } from "../../src/side-panel/EditSession";
 import { SENTINEL_PREFIX, SENTINEL_SUFFIX } from "../../src/side-panel/forms/sentinels";
 import { I18nProvider } from "@openworkflowspec/i18n";
@@ -134,7 +134,7 @@ describe("EditFormFooter — CallHTTP HTTP Endpoint variant switch + Apply", () 
       });
     });
 
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await clickApply(user);
     expect(commitWorkflow).toHaveBeenCalledTimes(1);
 
     const committed = nodeAt(commitWorkflow.mock.calls[0]![0] as Specification.Workflow, NODE_ID)
@@ -156,7 +156,7 @@ describe("EditFormFooter — CallHTTP HTTP Endpoint variant switch + Apply", () 
       formRef.current!.setValue(ENDPOINT_PATH as never, "" as never, { shouldDirty: true });
     });
 
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await clickApply(user);
     expect(commitWorkflow).toHaveBeenCalledTimes(1);
 
     const committedTask = nodeAt(
@@ -220,7 +220,7 @@ describe("EditFormFooter — full round-trip: type expression → Apply → clea
     await act(async () => {
       formRef.current!.setValue(ENDPOINT_PATH as never, "${fdgsd}" as never, { shouldDirty: true });
     });
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await clickApply(user);
     expect(commitWorkflow).toHaveBeenCalledTimes(1);
 
     const firstCommit = nodeAt(commitWorkflow.mock.calls[0]![0] as Specification.Workflow, NODE_ID)
@@ -236,7 +236,7 @@ describe("EditFormFooter — full round-trip: type expression → Apply → clea
     await act(async () => {
       formRef.current!.setValue(ENDPOINT_PATH as never, "" as never, { shouldDirty: true });
     });
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await clickApply(user);
     expect(commitWorkflow).toHaveBeenCalledTimes(2);
 
     const secondCommit = nodeAt(commitWorkflow.mock.calls[1]![0] as Specification.Workflow, NODE_ID)
@@ -286,7 +286,7 @@ describe("EditFormFooter — call type switch (CallHTTP → CallMCP)", () => {
       });
     });
 
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await clickApply(user);
     expect(commitWorkflow).toHaveBeenCalledTimes(1);
 
     const committed = nodeAt(commitWorkflow.mock.calls[0]![0] as Specification.Workflow, NODE_ID)
@@ -308,7 +308,7 @@ describe("EditFormFooter — call type switch (CallHTTP → CallMCP)", () => {
         shouldDirty: true,
       });
     });
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await clickApply(user);
 
     const committed = nodeAt(commitWorkflow.mock.calls[0]![0] as Specification.Workflow, NODE_ID)
       .data.task as Record<string, unknown>;

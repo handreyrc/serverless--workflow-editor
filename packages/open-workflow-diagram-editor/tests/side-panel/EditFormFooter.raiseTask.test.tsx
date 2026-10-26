@@ -38,7 +38,7 @@ const { EditFormFooter } = await import("../../src/side-panel/EditFormFooter");
 const { TaskForm } = await import("../../src/side-panel/forms/TaskForm");
 const { RAISE_BOTH_ERROR_SHAPES_WORKFLOW } = await import("../fixtures/workflows");
 const { renderWithProviders } = await import("../test-utils/render-helpers");
-const { nodeAt, parseFixture } = await import("../test-utils");
+const { nodeAt, parseFixture, applyButton } = await import("../test-utils");
 
 const REFERENCE_NODE_ID = "/do/raiseByReference";
 const INLINE_NODE_ID = "/do/raiseInline";
@@ -66,7 +66,6 @@ function renderRaiseFooter(nodeId: string) {
 
 type User = ReturnType<typeof userEvent.setup>;
 
-const apply = () => screen.getByRole("button", { name: "Apply" });
 const choose = (user: User, label: string) =>
   user.click(screen.getByRole("button", { name: label }));
 const fieldValue = (label: string) =>
@@ -91,7 +90,7 @@ describe("raise task error variant switch", () => {
     renderRaiseFooter(nodeId);
     await act(async () => {});
 
-    expect(apply()).toBeDisabled();
+    expect(applyButton()).toBeDisabled();
   });
 
   it("commits an inline definition when switching away from a reference", async () => {
@@ -101,7 +100,7 @@ describe("raise task error variant switch", () => {
     await choose(user, "Raise Error Definition");
     await user.type(screen.getByLabelText("Type"), "https://example.com/errors/nope");
     await user.type(screen.getByLabelText("Status"), "418");
-    await user.click(apply());
+    await user.click(applyButton());
 
     expect(committedRaise(commitWorkflow, REFERENCE_NODE_ID)).toEqual({
       error: { type: "https://example.com/errors/nope", status: 418 },
@@ -114,7 +113,7 @@ describe("raise task error variant switch", () => {
 
     await choose(user, "Raise Error Reference");
     await user.type(screen.getByLabelText("Error"), "serviceUnavailable");
-    await user.click(apply());
+    await user.click(applyButton());
 
     expect(committedRaise(commitWorkflow, INLINE_NODE_ID)).toEqual({
       error: "serviceUnavailable",
@@ -174,7 +173,7 @@ describe("raise task error variant switch", () => {
     expect(selector("Type option")).toBe("Expression Error Type");
     expect(fieldValue("Type")).toBe("${ .boom }");
 
-    await user.click(apply());
+    await user.click(applyButton());
     expect(committedRaise(commitWorkflow, INLINE_NODE_ID)).toMatchObject({
       error: { type: "${ .boom }" },
     });

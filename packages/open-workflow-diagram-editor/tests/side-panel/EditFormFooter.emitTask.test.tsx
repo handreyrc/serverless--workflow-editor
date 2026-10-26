@@ -34,7 +34,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 import * as React from "react";
-import { act, render, screen } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Specification } from "@openworkflowspec/sdk";
 import { EditFormFooter } from "../../src/side-panel/EditFormFooter";
@@ -46,7 +46,7 @@ import {
   FormSpy,
   type FormRef,
 } from "../test-utils/render-helpers";
-import { nodeAt, parseFixture } from "../test-utils";
+import { nodeAt, parseFixture, applyButton } from "../test-utils";
 import { EditSessionProvider } from "../../src/side-panel/EditSession";
 import { SENTINEL_PREFIX, SENTINEL_SUFFIX } from "../../src/side-panel/forms/sentinels";
 import { I18nProvider } from "@openworkflowspec/i18n";
@@ -173,7 +173,7 @@ describe("EditFormFooter — emit task Data/Expression variant switch", () => {
   it("Apply is disabled initially (no changes)", async () => {
     renderEmitFooter();
     await act(async () => {});
-    expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
+    expect(applyButton()).toBeDisabled();
   });
 
   it("Apply becomes enabled after Data→Expression switch (sentinel makes form dirty)", async () => {
@@ -182,7 +182,7 @@ describe("EditFormFooter — emit task Data/Expression variant switch", () => {
 
     await switchDataToExpression(formRef.current!);
 
-    expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled();
+    expect(applyButton()).toBeEnabled();
   });
 
   it("removes the data property from the model when Expression is selected and Apply is clicked", async () => {
@@ -198,8 +198,8 @@ describe("EditFormFooter — emit task Data/Expression variant switch", () => {
 
     await switchDataToExpression(formRef.current!);
 
-    expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled();
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(applyButton()).toBeEnabled();
+    await user.click(applyButton());
 
     expect(commitWorkflow).toHaveBeenCalledTimes(1);
     const task = committedTask(commitWorkflow, EMIT_NODE_ID);
@@ -218,9 +218,9 @@ describe("EditFormFooter — emit task Data/Expression variant switch", () => {
     await act(async () => {});
 
     await switchDataToExpression(formRef.current!);
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await user.click(applyButton());
 
-    expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
+    expect(applyButton()).toBeDisabled();
   });
 });
 
@@ -228,7 +228,7 @@ describe("EditFormFooter — emit task Expression→Data variant switch (express
   it("Apply is disabled initially when data is a committed expression", async () => {
     renderExprEmitFooter();
     await act(async () => {});
-    expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
+    expect(applyButton()).toBeDisabled();
   });
 
   it("Apply becomes enabled after Expression→Data switch", async () => {
@@ -237,7 +237,7 @@ describe("EditFormFooter — emit task Expression→Data variant switch (express
 
     await switchExpressionToData(formRef.current!);
 
-    expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled();
+    expect(applyButton()).toBeEnabled();
   });
 
   it("removes the data property from the model when Data is selected (empty) and Apply is clicked", async () => {
@@ -253,8 +253,8 @@ describe("EditFormFooter — emit task Expression→Data variant switch (express
 
     await switchExpressionToData(formRef.current!);
 
-    expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled();
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(applyButton()).toBeEnabled();
+    await user.click(applyButton());
 
     expect(commitWorkflow).toHaveBeenCalledTimes(1);
     const task = committedTask(commitWorkflow, EXPR_NODE_ID);
@@ -273,9 +273,9 @@ describe("EditFormFooter — emit task Expression→Data variant switch (express
     await act(async () => {});
 
     await switchExpressionToData(formRef.current!);
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await user.click(applyButton());
 
-    expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
+    expect(applyButton()).toBeDisabled();
   });
 
   it("defaultValues no longer contain the old expression after apply", async () => {
@@ -284,7 +284,7 @@ describe("EditFormFooter — emit task Expression→Data variant switch (express
     await act(async () => {});
 
     await switchExpressionToData(formRef.current!);
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await user.click(applyButton());
 
     // Old expression must be gone from defaultValues (may be "" after padding).
     const defaultValues = (
@@ -385,7 +385,7 @@ describe("EditFormFooter — full round-trip: Data(obj)→Expression(ok)→Data(
         shouldDirty: true,
       });
     });
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await user.click(applyButton());
     expect(commitWorkflow).toHaveBeenCalledTimes(1);
 
     // Step 3: simulate store update — task prop changes to the committed task (data: "ok")
@@ -414,8 +414,8 @@ describe("EditFormFooter — full round-trip: Data(obj)→Expression(ok)→Data(
       });
     });
 
-    expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled();
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(applyButton()).toBeEnabled();
+    await user.click(applyButton());
 
     expect(commitWorkflow).toHaveBeenCalledTimes(2);
 

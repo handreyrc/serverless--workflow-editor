@@ -24,7 +24,7 @@ import { TaskForm } from "../../src/side-panel/forms/TaskForm";
 import type { BaseNodeData } from "../../src/react-flow/nodes/Nodes";
 import { MANAGING_GITHUB_ISSUES_WORKFLOW } from "../fixtures/workflows";
 import { renderWithProviders } from "../test-utils/render-helpers";
-import { nodeAt, parseFixture } from "../test-utils";
+import { nodeAt, parseFixture, applyButton, t } from "../test-utils";
 
 // The call task: /do/evaluateReview/do/closeIssue/do/closeIssueOnGithub
 const NODE_ID = "/do/evaluateReview/do/closeIssue/do/closeIssueOnGithub";
@@ -62,7 +62,7 @@ describe("EditFormFooter", () => {
   it("is visible immediately with Apply disabled when nothing has been changed", () => {
     renderFooter();
 
-    expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
+    expect(applyButton()).toBeDisabled();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
 
@@ -75,14 +75,14 @@ describe("EditFormFooter", () => {
     await user.clear(methodInput);
     await user.type(methodInput, "delete");
 
-    expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled();
+    expect(applyButton()).toBeEnabled();
     expect(screen.getByText("1 changed")).toBeInTheDocument();
   });
 
   it("stays hidden in read-only mode", () => {
     renderFooter({ isReadOnly: true });
 
-    expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: t("sidebar.form.apply") })).not.toBeInTheDocument();
   });
 
   describe("cancel", () => {
@@ -98,7 +98,7 @@ describe("EditFormFooter", () => {
 
       await user.click(screen.getByRole("button", { name: "Cancel" }));
 
-      expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
+      expect(applyButton()).toBeDisabled();
       expect(methodInput).toHaveValue(originalValue);
     });
   });
@@ -111,7 +111,7 @@ describe("EditFormFooter", () => {
       const methodInput = screen.getByLabelText(/^Method$/i);
       await user.clear(methodInput);
       await user.type(methodInput, "delete");
-      await user.click(screen.getByRole("button", { name: "Apply" }));
+      await user.click(applyButton());
 
       expect(screen.getByRole("status")).toHaveTextContent("Applied");
     });
@@ -123,7 +123,7 @@ describe("EditFormFooter", () => {
       const methodInput = screen.getByLabelText(/^Method$/i);
       await user.clear(methodInput);
       await user.type(methodInput, "delete");
-      await user.click(screen.getByRole("button", { name: "Apply" }));
+      await user.click(applyButton());
 
       // Change again after apply — clear then type new value
       await user.clear(methodInput);
@@ -144,7 +144,7 @@ describe("EditFormFooter", () => {
         const methodInput = screen.getByLabelText(/^Method$/i);
         await user.clear(methodInput);
         await user.type(methodInput, "delete");
-        await user.click(screen.getByRole("button", { name: "Apply" }));
+        await user.click(applyButton());
         expect(screen.getByText("Applied")).toBeInTheDocument();
 
         await act(async () => {
@@ -165,7 +165,7 @@ describe("EditFormFooter", () => {
       const methodInput = screen.getByLabelText(/^Method$/i);
       await user.clear(methodInput);
       await user.type(methodInput, "delete");
-      await user.click(screen.getByRole("button", { name: "Apply" }));
+      await user.click(applyButton());
 
       expect(commitWorkflow).toHaveBeenCalledTimes(1);
       const committed = committedTask(commitWorkflow);
@@ -179,9 +179,9 @@ describe("EditFormFooter", () => {
       const methodInput = screen.getByLabelText(/^Method$/i);
       await user.clear(methodInput);
       await user.type(methodInput, "delete");
-      await user.click(screen.getByRole("button", { name: "Apply" }));
+      await user.click(applyButton());
 
-      expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
+      expect(applyButton()).toBeDisabled();
     });
 
     it("carries over fields not changed", async () => {
@@ -191,7 +191,7 @@ describe("EditFormFooter", () => {
       const methodInput = screen.getByLabelText(/^Method$/i);
       await user.clear(methodInput);
       await user.type(methodInput, "delete");
-      await user.click(screen.getByRole("button", { name: "Apply" }));
+      await user.click(applyButton());
 
       const committed = committedTask(commitWorkflow);
       expect(committed.call).toBe("http");
@@ -214,7 +214,9 @@ describe("EditFormFooter", () => {
         commitWorkflow: vi.fn(),
       });
 
-      expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: t("sidebar.form.apply") }),
+      ).not.toBeInTheDocument();
     });
   });
 });

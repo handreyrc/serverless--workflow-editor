@@ -50,7 +50,7 @@ export function VariantPicker({
   compact?: boolean;
 }) {
   const { t } = useI18n();
-  const { isReadOnly, taskData } = useTaskFormContext();
+  const { isReadOnly, taskData, revalidateIfAttempted } = useTaskFormContext();
   const { getValues, setValue, register, clearErrors } = useFormContext<Record<string, unknown>>();
   const sentinelPath = toSentinelPath(field.path);
   const selectedVariantIdx = useSelectedVariant(field);
@@ -130,6 +130,7 @@ export function VariantPicker({
       if (pathsToClear.length > 0) {
         clearErrors(pathsToClear);
       }
+      revalidateIfAttempted?.();
     },
     [
       selectedVariantIdx,
@@ -137,6 +138,7 @@ export function VariantPicker({
       getValues,
       setValue,
       clearErrors,
+      revalidateIfAttempted,
       sentinelPath,
       variantSnapshotsForField,
     ],
