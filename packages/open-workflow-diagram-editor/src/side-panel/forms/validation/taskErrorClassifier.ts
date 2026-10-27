@@ -124,7 +124,7 @@ function classify(
   }
 
   // Errors that cannot be traced back to fields or containers still block Apply, so they are kept
-  // and listed in the footer, as no level of the form shows them (D5, D9, D14).
+  // and listed in the footer, as no level of the form shows them.
   return { kind: "unplaced", path };
 }
 
@@ -143,8 +143,8 @@ function isInsideEmptyOptionalSection(
  * Turns the raw Ajv errors of a whole task into the errors the user can see and fix in the form.
  *
  * Each error is placed by its path against what the form shows now (the active view): a field
- * error on a value field, a level error on a container or untraced path, and noise is dropped (D9, D14).
- * Subtask errors are dropped (D10).
+ * error on a value field, a level error on a container or untraced path, and noise is dropped.
+ * Subtask errors are dropped.
  */
 export function classifyTaskErrors(
   ajvErrors: ErrorObject[] | null | undefined,

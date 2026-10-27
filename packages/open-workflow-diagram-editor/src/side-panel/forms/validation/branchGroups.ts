@@ -20,7 +20,7 @@ import type { PresenceKeys } from "./activeFormView";
 /**
  * When no branch of a `oneOf`/`anyOf` matches, Ajv reports the errors of every branch. Only the
  * branch the user is editing is real. This module keeps that branch's errors; when it cannot be
- * told apart, the branches collapse into one error on the group (a "group" error, D14).
+ * told apart, the branches collapse into one error on the group (a "group" error).
  *
  * Works from the error evidence only. Schema paths cannot be resolved against the root schema
  * because `$ref` resets them, so a branch is recognised by the `<group>/<n>/` prefix.

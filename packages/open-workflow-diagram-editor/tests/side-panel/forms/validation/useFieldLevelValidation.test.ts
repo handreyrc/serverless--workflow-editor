@@ -29,6 +29,13 @@ vi.mock("../../../../src/side-panel/forms/validation/schemaValidator", () => ({
   validateTaskData: vi.fn().mockReturnValue(null),
 }));
 
+const EMPTY_RESULT = {
+  fieldErrors: {},
+  levelErrors: {},
+  unplacedErrors: {},
+  hasUnparseableValueMapPayload: false,
+};
+
 describe("useFieldLevelValidation", () => {
   beforeEach(() => {
     vi.mocked(validateTaskData).mockReturnValue(null);
@@ -286,7 +293,7 @@ describe("useFieldLevelValidation", () => {
 
       // Set attempted latch to true
       act(() => {
-        result.current.validation.setAttempted(true);
+        result.current.validation.recordValidationResult(EMPTY_RESULT, true);
       });
 
       // Blur field
@@ -300,7 +307,7 @@ describe("useFieldLevelValidation", () => {
       expect(result.current.validation.errorCount).toBe(1);
     });
 
-    it("clears workflow error on blurred field before running task validation (D11)", () => {
+    it("clears workflow error on blurred field before running task validation", () => {
       const setError = vi.fn();
       const clearErrors = vi.fn();
       const form = {
@@ -320,7 +327,7 @@ describe("useFieldLevelValidation", () => {
       );
 
       act(() => {
-        result.current.validation.setAttempted(true);
+        result.current.validation.recordValidationResult(EMPTY_RESULT, true);
       });
 
       act(() => {
@@ -369,7 +376,7 @@ describe("useFieldLevelValidation", () => {
 
       // When attempted is true, revalidateIfAttempted updates state
       act(() => {
-        result.current.validation.setAttempted(true);
+        result.current.validation.recordValidationResult(EMPTY_RESULT, true);
       });
       act(() => {
         result.current.fieldValidation.revalidateIfAttempted();

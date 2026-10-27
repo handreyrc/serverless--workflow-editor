@@ -26,13 +26,12 @@
     color: var(--dec-error-accent, #f87171);
   }
 
-  /* Level errors in the form (D14, ST-5b) */
+  /* Level errors in the form */
   .dec-root .dec-level-errors {
-    @apply dec:flex dec:flex-col dec:gap-1 dec:mb-3 dec:p-2.5 dec:rounded-md dec:text-xs dec:font-medium dec:bg-red-50 dec:text-red-700 dec:border dec:border-red-200;
-  }
-
-  .dec-root.dark .dec-level-errors {
-    @apply dec:bg-red-950/40 dec:text-red-300 dec:border-red-900/50;
+    @apply dec:flex dec:flex-col dec:gap-1 dec:mb-3 dec:p-2.5 dec:rounded-md dec:text-xs dec:font-medium dec:border;
+    background-color: var(--dec-error-bg);
+    color: var(--dec-error-text);
+    border-color: color-mix(in srgb, var(--dec-error-accent) 25%, transparent);
   }
   /* Errors on paths no level of the form shows, listed in the footer */
   .dec-root .dec-unplaced-errors {

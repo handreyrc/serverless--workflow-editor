@@ -58,7 +58,7 @@ export function useFieldLevelValidation(
       }
 
       if (taskValidation.attempted) {
-        // D11: clear any error on the blurred field (including workflow) before running task validation
+        // Clear any error on the blurred field (including workflow) before running task validation
         form.clearErrors(path);
         const result = validateTaskForm(nodeType, form, fields, { isReadOnly });
         recordValidationResult(result);

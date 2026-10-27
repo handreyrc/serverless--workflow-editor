@@ -62,18 +62,6 @@ describe("taskValidationContext", () => {
     expect(result.current.errorCount).toBe(2);
   });
 
-  it("sets attempted independently", () => {
-    const { result } = renderHook(() => useTaskValidation(), {
-      wrapper: TaskValidationProvider,
-    });
-
-    act(() => {
-      result.current.setAttempted(true);
-    });
-
-    expect(result.current.taskValidation.attempted).toBe(true);
-  });
-
   it("resets validation to initial state", () => {
     const { result } = renderHook(() => useTaskValidation(), {
       wrapper: TaskValidationProvider,

@@ -26,11 +26,11 @@ import { collectTaskErrors } from "./collectSchemaFieldErrors";
 export interface TaskValidationResult {
   /** Errors shown on a specific form field (written to RHF with type "schema"). */
   fieldErrors: Record<string, string>;
-  /** Errors shown at a container / section / root level (D14). */
+  /** Errors shown at a container / section / root level. */
   levelErrors: Record<string, string>;
   /** The level errors no level of the form shows; listed with their path in the footer. */
   unplacedErrors: Record<string, string>;
-  /** True when a valueMap-backed enum payload failed to parse (D6: non-bypassable). */
+  /** True when a valueMap-backed enum payload failed to parse (non-bypassable). */
   hasUnparseableValueMapPayload: boolean;
 }
 
@@ -69,7 +69,7 @@ export function collectSchemaErrorPaths(
  * validation result.
  *
  * Workflow-seeded errors (`type === "workflow"`) are never cleared by this function.
- * Level errors (D14) are returned but not written into RHF.
+ * Level errors are returned but not written into RHF.
  */
 export function validateTaskForm(
   nodeType: string,
@@ -92,7 +92,7 @@ export function validateTaskForm(
   const levelErrors = { ...classified.levelErrors };
   let hasUnparseableValueMapPayload = false;
 
-  // Check for unparseable valueMap payloads (D6)
+  // Check for unparseable valueMap payloads
   for (const field of collectValueMapFields(fields)) {
     const live = getNestedValue(formValues, field.path);
     if (typeof live === "string" && field.innerObjectFormat !== undefined) {

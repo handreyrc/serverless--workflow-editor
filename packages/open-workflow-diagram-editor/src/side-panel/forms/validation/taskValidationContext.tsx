@@ -45,8 +45,6 @@ export interface TaskValidationContextValue {
   errorCount: number;
   /** Records a validation result into state, optionally updating the attempted flag. */
   recordValidationResult: (result: TaskValidationResult, attempted?: boolean) => void;
-  /** Sets the attempted flag (e.g. on Apply click). */
-  setAttempted: (attempted: boolean) => void;
   /** Resets validation state to initial clean state. */
   resetValidation: () => void;
 }
@@ -60,10 +58,6 @@ export function TaskValidationProvider({ children }: { children: React.ReactNode
 
   const resetValidation = React.useCallback(() => {
     setState(INITIAL_TASK_VALIDATION_STATE);
-  }, []);
-
-  const setAttempted = React.useCallback((attempted: boolean) => {
-    setState((prev) => (prev.attempted === attempted ? prev : { ...prev, attempted }));
   }, []);
 
   const recordValidationResult = React.useCallback(
@@ -89,10 +83,9 @@ export function TaskValidationProvider({ children }: { children: React.ReactNode
       taskValidation: state,
       errorCount,
       recordValidationResult,
-      setAttempted,
       resetValidation,
     }),
-    [state, errorCount, recordValidationResult, setAttempted, resetValidation],
+    [state, errorCount, recordValidationResult, resetValidation],
   );
 
   return <TaskValidationContext.Provider value={value}>{children}</TaskValidationContext.Provider>;
@@ -102,7 +95,6 @@ const DEFAULT_TASK_VALIDATION_CONTEXT: TaskValidationContextValue = {
   taskValidation: INITIAL_TASK_VALIDATION_STATE,
   errorCount: 0,
   recordValidationResult: () => {},
-  setAttempted: () => {},
   resetValidation: () => {},
 };
 

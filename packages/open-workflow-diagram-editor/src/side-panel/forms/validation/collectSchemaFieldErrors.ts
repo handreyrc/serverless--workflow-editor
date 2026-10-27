@@ -62,7 +62,7 @@ export function collectSchemaFieldErrors(
 
 /**
  * Whole-task validation: the errors the user can see and fix in the form, split into field
- * errors and level errors (D9, D14). Subtasks are not validated (D10).
+ * errors and level errors. Subtasks are not validated.
  *
  * @param nodeType - Graph node type
  * @param formValues - Current form values
