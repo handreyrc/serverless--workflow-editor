@@ -188,15 +188,6 @@ export function EnumControl({ field, id }: EnumControlProps) {
     return text;
   });
 
-  // Tracks whether the current innerText fails to parse as a plain object.
-  // When true, the textarea shows an inline error and Apply is blocked for this field.
-  // Read from the stored text, not assumed clean: a drill remounts this row with the draft intact.
-  const [innerParseError, setInnerParseError] = React.useState(
-    () =>
-      hasInnerObject &&
-      getInnerObjectForPath(field.path, field.innerObjectFormat ?? "yaml") === null,
-  );
-
   // Re-sync when the form resets (apply, cancel, node switch, undo/redo).
   // defaultValues identity changes on every form.reset() call.
   // Track the previous snapshot in state (not a ref) so the state derivation can happen
@@ -214,7 +205,6 @@ export function EnumControl({ field, id }: EnumControlProps) {
       const innerObj = deriveInnerObject(fromDefault);
       const text = serializeInnerObject(innerObj, field.innerObjectFormat ?? "yaml");
       setInnerText(text);
-      setInnerParseError(false);
       innerObjectTextStore.set(field.path, text);
     }
   }
@@ -263,9 +253,6 @@ export function EnumControl({ field, id }: EnumControlProps) {
               const newText = restored ?? "";
               setInnerText(newText);
               innerObjectTextStore.set(field.path, newText);
-              setInnerParseError(
-                getInnerObjectForPath(field.path, field.innerObjectFormat ?? "yaml") === null,
-              );
             }
             setSelectedKey(val ?? "");
           }
@@ -276,31 +263,6 @@ export function EnumControl({ field, id }: EnumControlProps) {
           const text = e.target.value;
           setInnerText(text);
           innerObjectTextStore.set(field.path, text);
-          // Validate parse immediately so the user gets inline feedback and Apply
-          // cannot commit a malformed or non-object payload.
-          if (text.trim() === "") {
-            setInnerParseError(false);
-          } else {
-            const parsed =
-              field.innerObjectFormat === "json"
-                ? (() => {
-                    try {
-                      return JSON.parse(text);
-                    } catch {
-                      return null;
-                    }
-                  })()
-                : (() => {
-                    try {
-                      return load(text);
-                    } catch {
-                      return null;
-                    }
-                  })();
-            setInnerParseError(
-              parsed === null || typeof parsed !== "object" || Array.isArray(parsed),
-            );
-          }
           // Ensure the Controller is dirty when only the inner text changes.
           // Re-writing the same string key triggers RHF's dirty comparison:
           // the string differs from the default (which is an object), so the
@@ -311,13 +273,10 @@ export function EnumControl({ field, id }: EnumControlProps) {
         }
 
         const showInnerTextarea = hasInnerObject && displayKey !== "";
-        const innerTextErrorMessage = innerParseError
-          ? t("sidebar.form.innerObject.parseError")
-          : undefined;
 
         return (
           <>
-            <FieldWithError errorMessage={errorMessage}>
+            <FieldWithError errorMessage={!showInnerTextarea ? errorMessage : undefined}>
               <Combobox
                 value={displayKey}
                 onValueChange={!isReadOnly ? handleValueChange : undefined}
@@ -357,14 +316,18 @@ export function EnumControl({ field, id }: EnumControlProps) {
               </Combobox>
             </FieldWithError>
             {showInnerTextarea && (
-              <FieldWithError errorMessage={innerTextErrorMessage}>
+              <FieldWithError errorMessage={errorMessage}>
                 <Textarea
                   value={innerText}
                   onChange={!isReadOnly ? handleInnerTextChange : undefined}
+                  onBlur={() => {
+                    rhfField.onBlur();
+                    validateField?.(field.path);
+                  }}
                   disabled={isReadOnly}
                   readOnly={isReadOnly}
                   className="dec-form-scrollable-textarea dec-form-structured-value-textarea"
-                  aria-invalid={innerParseError || undefined}
+                  aria-invalid={errorMessage !== undefined || undefined}
                   aria-label={displayKey}
                 />
               </FieldWithError>
