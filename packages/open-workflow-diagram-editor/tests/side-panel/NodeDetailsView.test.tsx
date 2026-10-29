@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
+import * as React from "react";
 import { describe, it, expect } from "vitest";
 import { screen } from "@testing-library/react";
 import type * as RF from "@xyflow/react";
 import { NodeDetailsView } from "../../src/side-panel/NodeDetailsView";
+import { useTaskValidation } from "../../src/side-panel/forms/validation";
 import type { BaseNodeData } from "../../src/react-flow/nodes/Nodes";
 import { renderWithProviders } from "../test-utils/render-helpers";
 
@@ -154,6 +156,88 @@ describe("NodeDetailsView", () => {
 
       expect(screen.getByText("must have required property 'endpoint'")).toBeInTheDocument();
       expect(document.querySelector(".dec-sidebar-error-field")?.textContent).toBe("with");
+    });
+
+    it("always shows workflow errors regardless of whether validation was attempted", () => {
+      const node = makeNode({
+        label: "callService",
+        taskReference,
+        task: { call: "http", with: {} },
+      });
+
+      function Harness() {
+        const { recordValidationResult } = useTaskValidation();
+        React.useLayoutEffect(() => {
+          recordValidationResult(
+            {
+              fieldErrors: {},
+              levelErrors: { with: "schema level error" },
+              unplacedErrors: {},
+              hasUnparseableValueMapPayload: false,
+            },
+            true,
+          );
+        }, [recordValidationResult]);
+        return <NodeDetailsView node={node} />;
+      }
+
+      renderWithProviders(<Harness />, {
+        taskReferences,
+        errors: [{ path: `${taskReference}/with`, message: "workflow error" }],
+      });
+
+      // Workflow error is still shown in the error banner — not replaced by level errors.
+      expect(screen.getByTestId("sidebar-errors")).toBeInTheDocument();
+      expect(screen.getByText("workflow error")).toBeInTheDocument();
+    });
+
+    it("does not show level errors in the top banner (they are rendered inside the form by LevelErrors)", () => {
+      const node = makeNode({
+        label: "callService",
+        taskReference,
+        task: { call: "http", with: {} },
+      });
+
+      function Harness() {
+        const { recordValidationResult } = useTaskValidation();
+        React.useLayoutEffect(() => {
+          recordValidationResult(
+            {
+              fieldErrors: {},
+              levelErrors: { with: "schema level error" },
+              unplacedErrors: {},
+              hasUnparseableValueMapPayload: false,
+            },
+            true,
+          );
+        });
+        return <NodeDetailsView node={node} />;
+      }
+
+      renderWithProviders(<Harness />, {
+        taskReferences,
+        errors: [],
+      });
+
+      // No workflow errors → banner is not rendered.
+      expect(screen.queryByTestId("sidebar-errors")).not.toBeInTheDocument();
+      // The level error message should NOT appear in the banner.
+      expect(screen.queryByText("schema level error")).not.toBeInTheDocument();
+    });
+
+    it("shows no banner before validation is attempted, even when workflow errors are absent", () => {
+      const node = makeNode({
+        label: "callService",
+        taskReference,
+        task: { call: "http", with: {} },
+      });
+
+      renderWithProviders(<NodeDetailsView node={node} />, {
+        taskReferences,
+        errors: [],
+      });
+
+      expect(screen.queryByTestId("sidebar-errors")).not.toBeInTheDocument();
     });
   });
 

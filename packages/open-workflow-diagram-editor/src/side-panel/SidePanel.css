@@ -248,6 +248,10 @@
   .dec-root .dec-sidebar-form-footer-actions {
     @apply dec:flex dec:shrink-0 dec:items-center dec:gap-2;
   }
+
+  .dec-root .dec-sidebar-form-footer-status-column {
+    @apply dec:flex dec:flex-col dec:gap-0.5 dec:min-w-0 dec:overflow-hidden;
+  }
   /* End Sidebar Footer */
 
   .dec-root .dec-sidebar-edit-fields {

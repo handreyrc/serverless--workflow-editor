@@ -197,7 +197,7 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
       onClick={(event) => {
         onClick?.(event);
         /* DIVERGED FROM SHADCN: Cancel toggle, SidePanelTrigger uses this to hold the panel open */
-        if(event.defaultPrevented){
+        if (event.defaultPrevented) {
           return;
         }
         toggleSidebar();

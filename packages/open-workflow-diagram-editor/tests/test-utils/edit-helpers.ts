@@ -18,6 +18,7 @@ import { screen } from "@testing-library/react";
 import type userEvent from "@testing-library/user-event";
 import { MANAGING_GITHUB_ISSUES_WORKFLOW } from "../fixtures/workflows";
 import { nodeAt, parseFixture } from "./workflow-helpers";
+import { t } from "./translation-helpers";
 
 type User = ReturnType<typeof userEvent.setup>;
 /**
@@ -41,4 +42,24 @@ export const methodField = () => screen.getByLabelText(/^Method$/i);
 export const dirtyTaskDraft = async (user: User, value = "delete") => {
   await user.clear(methodField());
   await user.type(methodField(), value);
+};
+
+/** The Apply / Apply-anyway button (label starts with "Apply"). */
+export const applyButton = () =>
+  screen.getByRole("button", { name: new RegExp(`^${t("sidebar.form.apply")}`) });
+
+/** The "Apply anyway" button, present only after a first blocked Apply. */
+export const applyAnywayButton = () =>
+  screen.queryByRole("button", { name: t("sidebar.form.applyAnyway") });
+
+/**
+ * Clicks Apply and, if the draft has validation errors, clicks "Apply anyway"
+ * to force-commit. Mirrors the pattern used throughout the footer tests.
+ */
+export const clickApply = async (user: User) => {
+  await user.click(applyButton());
+  const anyway = applyAnywayButton();
+  if (anyway) {
+    await user.click(anyway);
+  }
 };

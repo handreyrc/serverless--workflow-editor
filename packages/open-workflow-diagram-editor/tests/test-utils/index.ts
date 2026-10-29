@@ -23,4 +23,7 @@ export {
   editableTaskNode,
   methodField,
   dirtyTaskDraft,
+  applyButton,
+  applyAnywayButton,
+  clickApply,
 } from "./edit-helpers";

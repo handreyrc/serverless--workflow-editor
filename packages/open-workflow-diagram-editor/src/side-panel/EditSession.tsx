@@ -16,6 +16,7 @@
 
 import * as React from "react";
 import { FormProvider, useForm, type UseFormReturn } from "react-hook-form";
+import { TaskValidationProvider } from "./forms/validation";
 
 type EditSessionValue = {
   form: UseFormReturn<Record<string, unknown>>;
@@ -86,7 +87,9 @@ export function EditSessionProvider({ children }: { children: React.ReactNode })
 
   return (
     <EditSessionContext.Provider value={value}>
-      <FormProvider {...form}>{children}</FormProvider>
+      <TaskValidationProvider>
+        <FormProvider {...form}>{children}</FormProvider>
+      </TaskValidationProvider>
     </EditSessionContext.Provider>
   );
 }

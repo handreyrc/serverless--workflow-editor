@@ -927,7 +927,7 @@ describe("schemaToFormFields listenTask — One variant and Any+until fields", (
   it("Any variant matchesData returns true when data has `any` key", () => {
     // NOTE: AnyEventConsumptionStrategy has structural oneOf (`any` + `until`), so its
     // matchesData discriminator may be broader than ideal. The test checks that `{ any: [] }`
-    // matches but does NOT assert exclusivity (see PLAN.md: known limitation).
+    // matches but does NOT assert exclusivity (known limitation).
     const toField = getListenToOneOf();
     const anyVariant = toField.variants.find((v) => v.label === "Any Event Consumption Strategy");
     expect(anyVariant?.matchesData({ any: [] })).toBe(true);

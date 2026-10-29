@@ -18,13 +18,10 @@ import * as React from "react";
 import type { UseFormReturn } from "react-hook-form";
 import type { FormFieldDescriptor } from "@/core/schemaToFormFields";
 import { flattenTask } from "@/core/taskDraft";
-import { validateTaskData } from "./schemaValidator";
-import {
-  prepareValuesForValidation,
-  extractFieldErrors,
-  isSectionEmpty,
-  buildOptionalSectionSet,
-} from "./fieldErrorMapper";
+import { collectSchemaFieldErrors } from "./collectSchemaFieldErrors";
+import { isSectionEmpty, buildOptionalSectionSet } from "./fieldErrorMapper";
+import { validateTaskForm } from "./taskLevelValidation";
+import { useTaskValidation } from "./taskValidationContext";
 import { SENTINEL_KEY } from "../sentinels";
 
 export type FieldValidationHandler = (path: string) => void;
@@ -44,8 +41,15 @@ export function useFieldLevelValidation(
   form: UseFormReturn<Record<string, unknown>>,
   isReadOnly: boolean,
   fields: FormFieldDescriptor[] = [],
-): { validateField: FieldValidationHandler } {
+): { validateField: FieldValidationHandler; revalidateIfAttempted: () => void } {
+  const { taskValidation, recordValidationResult } = useTaskValidation();
   const optionalSections = React.useMemo(() => buildOptionalSectionSet(fields), [fields]);
+
+  const revalidateIfAttempted = React.useCallback(() => {
+    if (isReadOnly || !taskValidation.attempted) return;
+    const result = validateTaskForm(nodeType, form, fields, { isReadOnly });
+    recordValidationResult(result);
+  }, [isReadOnly, taskValidation.attempted, nodeType, form, fields, recordValidationResult]);
 
   const validateField = React.useCallback<FieldValidationHandler>(
     (path: string) => {
@@ -53,17 +57,16 @@ export function useFieldLevelValidation(
         return;
       }
 
+      if (taskValidation.attempted) {
+        // Clear any error on the blurred field (including workflow) before running task validation
+        form.clearErrors(path);
+        const result = validateTaskForm(nodeType, form, fields, { isReadOnly });
+        recordValidationResult(result);
+        return;
+      }
+
       const formValues = form.getValues();
       const flat = flattenTask(formValues);
-
-      // Extract current sentinels
-      const sentinels: Record<string, unknown> = {};
-      const liveOneof = formValues.__oneof__ as Record<string, unknown> | undefined;
-      if (liveOneof) {
-        for (const [k, v] of Object.entries(flattenTask(liveOneof))) {
-          sentinels[`${SENTINEL_KEY}.${k}`] = v;
-        }
-      }
 
       // Required sections must still be validated when empty so a cleared required field
       // surfaces a missing-field error; only optional sections are skipped.
@@ -83,10 +86,7 @@ export function useFieldLevelValidation(
         return;
       }
 
-      // Prepare values and validate against schema
-      const preparedValues = prepareValuesForValidation(formValues, fields, sentinels);
-      const ajvErrors = validateTaskData(nodeType, preparedValues);
-      const fieldErrors = extractFieldErrors(ajvErrors, formValues, fields, sentinels, path);
+      const fieldErrors = collectSchemaFieldErrors(nodeType, formValues, fields, path);
 
       const errorMessage = fieldErrors[path];
       if (errorMessage) {
@@ -98,8 +98,16 @@ export function useFieldLevelValidation(
         form.clearErrors(path);
       }
     },
-    [isReadOnly, nodeType, form, fields, optionalSections],
+    [
+      isReadOnly,
+      taskValidation.attempted,
+      nodeType,
+      form,
+      fields,
+      recordValidationResult,
+      optionalSections,
+    ],
   );
 
-  return { validateField };
+  return { validateField, revalidateIfAttempted };
 }

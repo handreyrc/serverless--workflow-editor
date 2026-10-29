@@ -33,6 +33,7 @@ import {
   useSelectedVariant,
   variantFieldsOf,
 } from "./taskFormContext";
+import { LevelErrors } from "./validation";
 import { FieldLabel, HelpTooltip } from "./FieldLabel";
 import { VariantPicker } from "./VariantPicker";
 import { KeyValueMapField } from "./customFields/KeyValueMapField";
@@ -243,6 +244,7 @@ function InlineObjectGroup({ field }: { field: ObjectField }) {
         required={field.required}
         {...(field.description !== undefined ? { description: field.description } : {})}
       />
+      <LevelErrors path={field.path} />
       {/* Below an inline object, objects drill, unless one is its only child. */}
       <InlineLevelsContext.Provider value={isInlineLevel(visibleChildren)}>
         {visibleChildren.map((child) => (
@@ -312,6 +314,7 @@ function SingleValueOneOf({ field, value }: { field: OneOfField; value: PlainFie
           <FieldControl field={value} {...(controlId !== undefined ? { id: controlId } : {})} />
         )}
       </div>
+      <LevelErrors path={field.path} />
     </div>
   );
 }
@@ -330,11 +333,14 @@ function OneOfFieldRow({ field }: { field: OneOfField }) {
   // A single-variant one-of has nothing to pick, so its fields stand in for it.
   if (field.variants.length <= 1) {
     return (
-      <div className="dec-form-oneof-children">
-        {shownFields.map((child) => (
-          <FormField key={child.path} field={child} />
-        ))}
-      </div>
+      <>
+        <LevelErrors path={field.path} />
+        <div className="dec-form-oneof-children">
+          {shownFields.map((child) => (
+            <FormField key={child.path} field={child} />
+          ))}
+        </div>
+      </>
     );
   }
 
@@ -362,6 +368,7 @@ function OneOfFieldRow({ field }: { field: OneOfField }) {
   return (
     <div className="dec-form-oneof-group">
       <VariantPicker field={field} />
+      <LevelErrors path={field.path} />
       {shownFields.length > 0 && (
         <div className="dec-form-oneof-children">
           {shownFields.map((child) => (

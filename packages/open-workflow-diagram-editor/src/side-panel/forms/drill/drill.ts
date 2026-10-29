@@ -49,7 +49,7 @@ export function isDrillTarget(field: FormFieldDescriptor): field is DrillTarget 
 
 /**
  * The fields an opened level shows. A map has no child fields: its level is the map's own
- * editor, so it lists itself (rendered inline there, never as its own drill row again). 
+ * editor, so it lists itself (rendered inline there, never as its own drill row again).
  * A one-of's fields are those of its selected variant, below its picker.
  */
 export function levelFieldsOf(
@@ -84,7 +84,7 @@ export function isSingleValue(fields: readonly FormFieldDescriptor[]): boolean {
 }
 
 /**
- * Whether a one-of is a drill row: when any of its options holds more than a single value. 
+ * Whether a one-of is a drill row: when any of its options holds more than a single value.
  * Decided by the schema, never by the option chosen.
  */
 export function oneOfDrills(field: OneOfField): boolean {

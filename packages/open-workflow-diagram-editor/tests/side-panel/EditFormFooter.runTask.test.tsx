@@ -41,7 +41,7 @@ const { RUN_PROCESS_TYPES_WORKFLOW } = await import("../fixtures/workflows");
 const { useDiagramEditorContext } = await import("../../src/store/DiagramEditorContext");
 const { renderWithProviders, renderWithEditorProviders } =
   await import("../test-utils/render-helpers");
-const { nodeAt, parseFixture } = await import("../test-utils");
+const { nodeAt, parseFixture, applyButton, clickApply } = await import("../test-utils");
 
 const CONTAINER_NODE_ID = "/do/buildImage";
 const SCRIPT_NODE_ID = "/do/transform";
@@ -71,7 +71,6 @@ function renderRunFooter(nodeId: string) {
 
 type User = ReturnType<typeof userEvent.setup>;
 
-const apply = () => screen.getByRole("button", { name: "Apply" });
 const choose = (user: User, label: string) =>
   user.click(screen.getByRole("button", { name: label }));
 const fieldValue = (label: string) =>
@@ -96,7 +95,7 @@ describe("run task editing", () => {
     renderRunFooter(nodeId);
     await act(async () => {});
 
-    expect(apply()).toBeDisabled();
+    expect(applyButton()).toBeDisabled();
   });
 
   it("commits an edited container image and keeps the shared keys", async () => {
@@ -105,7 +104,7 @@ describe("run task editing", () => {
 
     await user.clear(screen.getByLabelText("Image"));
     await user.type(screen.getByLabelText("Image"), "nginx:1.27");
-    await user.click(apply());
+    await clickApply(user);
 
     expect(committedTask(commitWorkflow, CONTAINER_NODE_ID).run).toEqual({
       await: false,
@@ -123,7 +122,7 @@ describe("run task editing", () => {
 
     await choose(user, "Run Shell");
     await user.type(screen.getByLabelText("Command"), "echo hi");
-    await user.click(apply());
+    await clickApply(user);
 
     const task = committedTask(commitWorkflow, CONTAINER_NODE_ID);
     expect(task.run).toEqual({ await: false, shell: { command: "echo hi" } });
@@ -139,7 +138,7 @@ describe("run task editing", () => {
     await act(async () => {});
 
     await choose(user, "Run Container");
-    await user.click(apply());
+    await clickApply(user);
 
     const task = committedTask(commitWorkflow, SHELL_NODE_ID);
     expect(task.run).toEqual({ container: {} });
@@ -153,7 +152,7 @@ describe("run task editing", () => {
     await choose(user, "Run Script");
     await choose(user, "External Script");
     await choose(user, "Run Shell");
-    await user.click(apply());
+    await clickApply(user);
 
     expect(committedTask(commitWorkflow, CONTAINER_NODE_ID).run).toEqual({
       await: false,
@@ -166,7 +165,7 @@ describe("run task editing", () => {
     await act(async () => {});
 
     await user.clear(screen.getByLabelText("Command"));
-    await user.click(apply());
+    await clickApply(user);
 
     const task = committedTask(commitWorkflow, SHELL_NODE_ID);
     expect(task.run).toEqual({ shell: {} });
@@ -178,7 +177,7 @@ describe("run task editing", () => {
     await act(async () => {});
 
     await choose(user, "Run Shell");
-    await user.click(apply());
+    await clickApply(user);
 
     expect(committedTask(commitWorkflow, CONTAINER_NODE_ID).run).toEqual({
       await: false,
@@ -191,7 +190,7 @@ describe("run task editing", () => {
     await act(async () => {});
 
     await choose(user, "External Script");
-    await user.click(apply());
+    await clickApply(user);
 
     expect(committedTask(commitWorkflow, SCRIPT_NODE_ID).run).toEqual({
       return: "all",
@@ -231,7 +230,7 @@ describe("run task editing", () => {
 
     await user.clear(screen.getByLabelText("Namespace"));
     await user.type(screen.getByLabelText("Namespace"), "billing");
-    await user.click(apply());
+    await clickApply(user);
 
     expect(committedTask(commitWorkflow, WORKFLOW_NODE_ID).run).toEqual({
       workflow: {
@@ -271,7 +270,7 @@ describe("run task schema defaults", () => {
     await act(async () => {});
 
     await user.type(screen.getByLabelText("Command"), " /tmp/cache");
-    await user.click(apply());
+    await clickApply(user);
 
     expect(committedTask(commitWorkflow, SHELL_NODE_ID).run).toEqual({
       shell: { command: "rm -rf /tmp/build /tmp/cache" },
@@ -313,7 +312,7 @@ describe("reopening a run task after a process-type switch", () => {
 
     await choose(user, "Run Shell");
     await user.type(screen.getByLabelText("Command"), "echo hi");
-    await user.click(apply());
+    await clickApply(user);
     await act(async () => selectNode(false));
     await act(async () => selectNode(true));
 

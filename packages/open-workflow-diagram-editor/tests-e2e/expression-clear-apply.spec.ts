@@ -51,10 +51,14 @@ test("switching CallHTTP→CallMCP without selecting method clears the old metho
   await expect(mcpOption).toBeVisible();
   await mcpOption.click();
 
-  // Do NOT select a method — leave it empty
+  // Do NOT select a method — leave it empty.
+  // First click triggers task validation; second click bypasses with "Apply anyway".
   const applyButton = page.getByRole("button", { name: /apply/i });
   await expect(applyButton).toBeEnabled();
   await applyButton.click();
+  const applyAnywayButton = page.getByRole("button", { name: /apply anyway/i });
+  await expect(applyAnywayButton).toBeVisible();
+  await applyAnywayButton.click();
   await page.waitForTimeout(500);
 
   // Deselect the node so getContent reflects the committed model

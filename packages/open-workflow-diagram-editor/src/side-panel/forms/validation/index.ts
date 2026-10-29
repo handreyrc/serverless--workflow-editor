@@ -21,6 +21,34 @@ export {
   validateTaskData,
   getDefinitionNameForNodeType,
 } from "./schemaValidator";
+export { collectSchemaFieldErrors, collectTaskErrors } from "./collectSchemaFieldErrors";
+export { buildActiveFormView, type ActiveFormView } from "./activeFormView";
+export { collapseBranchGroups, GROUP_KEYWORD } from "./branchGroups";
+export { classifyTaskErrors, type ClassifiedTaskErrors } from "./taskErrorClassifier";
+export {
+  validateTaskForm,
+  collectSchemaErrorPaths,
+  type TaskValidationResult,
+  type ValidateTaskFormOptions,
+} from "./taskLevelValidation";
+export {
+  TaskValidationProvider,
+  useTaskValidation,
+  useLevelErrors,
+  countLevelErrorsUnder,
+  INITIAL_TASK_VALIDATION_STATE,
+  type TaskValidationState,
+  type TaskValidationContextValue,
+} from "./taskValidationContext";
+export {
+  countErrors,
+  deriveFooterValidationState,
+  shouldBlockCommit,
+  type FooterValidationState,
+} from "./footerValidationState";
+export { FooterValidationCounter } from "./FooterValidationCounter";
+export { UnplacedErrors } from "./UnplacedErrors";
+export { LevelErrors, type LevelErrorsProps } from "./LevelErrors";
 export {
   prepareValuesForValidation,
   isSectionEmpty,

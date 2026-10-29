@@ -35,7 +35,7 @@ const { TaskForm } = await import("../../src/side-panel/forms/TaskForm");
 const { useDiagramEditorContext } = await import("../../src/store/DiagramEditorContext");
 const { COMMON_FIELDS_WORKFLOW } = await import("../fixtures/workflows");
 const { renderWithEditorProviders } = await import("../test-utils/render-helpers");
-const { nodeAt, parseFixture } = await import("../test-utils");
+const { nodeAt, parseFixture, applyButton } = await import("../test-utils");
 const { openLevel } = await import("../test-utils/drill-helpers");
 
 let committed: Specification.Workflow | null = null;
@@ -108,7 +108,7 @@ describe("editing a JSON/YAML value and applying", () => {
     fireEvent.change(textarea, { target: { value: asText(next) } });
     expect(screen.getByText("1 changed")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await user.click(applyButton());
     expect(valueAt(committedTask(nodeId), path)).toEqual(next);
   });
 });

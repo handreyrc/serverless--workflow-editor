@@ -157,7 +157,11 @@
   }
 
   .dec-root.dark .dec-container-node-header {
-    background-color: color-mix(in srgb, var(--task-node-color) 18%, var(--dec-surface-dark-raised));
+    background-color: color-mix(
+      in srgb,
+      var(--task-node-color) 18%,
+      var(--dec-surface-dark-raised)
+    );
   }
 
   .dec-root .dec-container-node-icon {
@@ -394,7 +398,8 @@
 
   /* end validation errors */
 
-  .dec-root .dec-start-node, .dec-root .dec-end-node{
+  .dec-root .dec-start-node,
+  .dec-root .dec-end-node {
     width: 45px;
     height: 45px;
     border-radius: 50%;
@@ -428,7 +433,7 @@
 
   .dec-root.dark .dec-start-node,
   .dec-root.dark .dec-end-node,
-  .dec-root.dark .dec-end-node-inner{
+  .dec-root.dark .dec-end-node-inner {
     @apply dec:border
      dec:border-solid
      dec:border-[var(--dec-edge-selected)]

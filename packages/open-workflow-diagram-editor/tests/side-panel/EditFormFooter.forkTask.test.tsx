@@ -32,7 +32,7 @@ const { EditFormFooter } = await import("../../src/side-panel/EditFormFooter");
 const { TaskForm } = await import("../../src/side-panel/forms/TaskForm");
 const { NESTED_FORK_WORKFLOW } = await import("../fixtures/workflows");
 const { renderWithProviders } = await import("../test-utils/render-helpers");
-const { nodeAt, parseFixture } = await import("../test-utils");
+const { nodeAt, parseFixture, applyButton } = await import("../test-utils");
 const { openCommonFields } = await import("../test-utils/drill-helpers");
 
 /** Races its branches (`compete: true`); one of them is the inner fork. */
@@ -64,7 +64,6 @@ function renderForkFooter(nodeId: string) {
   return { commitWorkflow, original: node.data.task as ForkTask, user: userEvent.setup() };
 }
 
-const apply = () => screen.getByRole("button", { name: "Apply" });
 const compete = () => screen.getByRole("switch", { name: /compete/i });
 
 /** The task at `nodeId` in the workflow the footer committed. */
@@ -80,7 +79,7 @@ describe("fork task editing", () => {
 
     expect(compete()).not.toBeChecked();
     await user.click(compete());
-    await user.click(apply());
+    await user.click(applyButton());
 
     expect(committedTask(commitWorkflow, INNER_FORK_ID).fork).toEqual({
       branches: original.fork!.branches,
@@ -94,7 +93,7 @@ describe("fork task editing", () => {
 
     expect(compete()).toBeChecked();
     await user.click(compete());
-    await user.click(apply());
+    await user.click(applyButton());
 
     expect(committedTask(commitWorkflow, OUTER_FORK_ID).fork).toEqual({
       branches: original.fork!.branches,
@@ -108,7 +107,7 @@ describe("fork task editing", () => {
 
     await openCommonFields(user);
     await user.type(screen.getByLabelText("if"), "{{.alarm}");
-    await user.click(apply());
+    await user.click(applyButton());
 
     const committed = committedTask(commitWorkflow, OUTER_FORK_ID);
     expect(committed.if).toBe("{.alarm}");

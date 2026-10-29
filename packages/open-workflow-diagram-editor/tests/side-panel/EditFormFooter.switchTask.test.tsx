@@ -31,7 +31,7 @@ const { EditFormFooter } = await import("../../src/side-panel/EditFormFooter");
 const { TaskForm } = await import("../../src/side-panel/forms/TaskForm");
 const { MANAGING_GITHUB_ISSUES_WORKFLOW } = await import("../fixtures/workflows");
 const { renderWithProviders } = await import("../test-utils/render-helpers");
-const { nodeAt, parseFixture, switchCase } = await import("../test-utils");
+const { nodeAt, parseFixture, switchCase, applyButton } = await import("../test-utils");
 
 /** A nested switch: `closeIssue` sets `when`, `default` leaves it unset. */
 const SWITCH_NODE_ID = "/do/evaluateReview/do/evaluate";
@@ -59,8 +59,6 @@ function renderSwitchFooter() {
   return { commitWorkflow, user: userEvent.setup() };
 }
 
-const apply = () => screen.getByRole("button", { name: "Apply" });
-
 /** `userEvent.type` reads `{` as a key descriptor, so a literal one is doubled. */
 const literal = (text: string) => text.replaceAll("{", "{{");
 
@@ -84,7 +82,7 @@ describe("switch task case editing", () => {
       caseGroup("closeIssue").getByLabelText("when"),
       literal("${ .action == 'close' }"),
     );
-    await user.click(apply());
+    await user.click(applyButton());
 
     expect(committedCases(commitWorkflow)).toEqual([
       switchCase("closeIssue", "closeIssue", "${ .action == 'close' }"),
@@ -97,7 +95,7 @@ describe("switch task case editing", () => {
     await act(async () => {});
 
     await user.click(caseGroup("default").getByRole("button", { name: "closeIssue" }));
-    await user.click(apply());
+    await user.click(applyButton());
 
     expect(committedCases(commitWorkflow)).toEqual([
       switchCase("closeIssue", "closeIssue", CLOSE_ISSUE_WHEN),
@@ -110,7 +108,7 @@ describe("switch task case editing", () => {
     await act(async () => {});
 
     await user.clear(caseGroup("closeIssue").getByLabelText("when"));
-    await user.click(apply());
+    await user.click(applyButton());
 
     expect(committedCases(commitWorkflow)).toEqual([
       switchCase("closeIssue", "closeIssue"),
@@ -123,7 +121,7 @@ describe("switch task case editing", () => {
     await act(async () => {});
 
     await user.type(caseGroup("default").getByLabelText("when"), literal("${ true }"));
-    await user.click(apply());
+    await user.click(applyButton());
 
     expect(committedCases(commitWorkflow)).toEqual([
       switchCase("closeIssue", "closeIssue", CLOSE_ISSUE_WHEN),

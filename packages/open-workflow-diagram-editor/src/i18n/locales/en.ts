@@ -64,6 +64,7 @@ export const en = {
   "sidebar.field.items": "items",
   "sidebar.field.variant": "option",
   "sidebar.form.apply": "Apply",
+  "sidebar.form.applyAnyway": "Apply anyway",
   "sidebar.form.cancel": "Cancel",
   "sidebar.form.changed": "changed",
   "sidebar.form.noChanges": "No changes",

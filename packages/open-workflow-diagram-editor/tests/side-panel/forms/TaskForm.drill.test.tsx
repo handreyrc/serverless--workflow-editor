@@ -24,6 +24,7 @@ import { getNestedValue } from "../../../src/side-panel/forms/taskFormContext";
 import { COMMON_FIELDS_WORKFLOW } from "../../fixtures/workflows";
 import { renderWithProviders, FormSpy, type FormRef } from "../../test-utils/render-helpers";
 import { nodeAt, parseFixture } from "../../test-utils/workflow-helpers";
+import { applyButton } from "../../test-utils";
 import { leaveLevel, openCommonFields, openLevel } from "../../test-utils/drill-helpers";
 
 const model = parseFixture(COMMON_FIELDS_WORKFLOW);
@@ -131,7 +132,7 @@ describe("TaskForm drill-in", () => {
     const input = outputAs();
     await user.clear(input);
     await user.type(input, "changed");
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await user.click(applyButton());
 
     expect(back()).toBeInTheDocument();
     const committed = commitWorkflow.mock.calls[0]![0] as Specification.Workflow;
@@ -227,7 +228,7 @@ describe("TaskForm drill-in", () => {
       expect(headersRow()).toHaveFocus();
       expect(screen.getByRole("status")).toHaveTextContent("1 changed");
 
-      await user.click(screen.getByRole("button", { name: "Apply" }));
+      await user.click(applyButton());
       const committed = commitWorkflow.mock.calls[0]![0] as Specification.Workflow;
       const fetch = (committed.do as unknown as Record<string, unknown>[])[1]!;
       expect(getNestedValue(fetch, "fetch.with.headers")).toEqual({

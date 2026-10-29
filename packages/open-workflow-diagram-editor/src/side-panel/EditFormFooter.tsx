@@ -28,6 +28,14 @@ import { getFormFieldsForNodeType } from "@/core";
 import { getValueMapInnerObject } from "@/side-panel/forms/customFields/EnumControl";
 import { useDiagramEditorContext } from "@/store/DiagramEditorContext";
 import { useEditSession } from "./EditSession";
+import {
+  useTaskValidation,
+  validateTaskForm,
+  deriveFooterValidationState,
+  shouldBlockCommit,
+  FooterValidationCounter,
+  UnplacedErrors,
+} from "./forms/validation";
 import { Check } from "lucide-react";
 import type { Specification } from "@openworkflowspec/sdk";
 import {
@@ -94,6 +102,9 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
   const { t } = useI18n();
   const { form } = useEditSession();
   const { commitWorkflow, isReadOnly, model } = useDiagramEditorContext();
+  const { taskValidation, errorCount, recordValidationResult, resetValidation } =
+    useTaskValidation();
+  const footerValidationState = deriveFooterValidationState(taskValidation, errorCount);
 
   const [appliedNodeId, setAppliedNodeId] = React.useState<string | null>(null);
   const dismissTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -131,6 +142,7 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
   ).length;
 
   const handleCancel = () => {
+    resetValidation();
     const sentinelDefaults = computeSentinelDefaults(allFields, task as Record<string, unknown>);
     form.reset({
       ...(task as Record<string, unknown>),
@@ -140,7 +152,15 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
   };
 
   const handleApply = () => {
-    // TODO: add error handling once we decide how to surface apply failures.
+    const validationResult = validateTaskForm(nodeType, form, allFields, { t });
+    // Capture `attempted` before the state update so the decision uses the pre-click snapshot.
+    const wasAttempted = taskValidation.attempted;
+    recordValidationResult(validationResult, true);
+
+    if (shouldBlockCommit(validationResult, wasAttempted)) {
+      return;
+    }
+
     // A JSON/YAML value is written whole, else a key deleted from its text would survive Apply.
     const flatValues = flattenTask(form.getValues(), "", jsonPaths);
     const rawFlatDirty = Object.keys(flattenTask(dirtyFields, "", jsonPaths));
@@ -216,6 +236,7 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
     ) as Specification.Task;
     const updatedModel = updateTask(model, taskId, updated);
     commitWorkflow(updatedModel);
+    resetValidation();
     // Reset to committed state; pass current sentinel labels so variant
     // selections are preserved even when the cleared field has no data match.
     const currentSentinels: Record<string, string> = {};
@@ -261,13 +282,26 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
   return (
     <SidebarFooter>
       <div className="dec-sidebar-form-footer">
-        <DraftStatus changedCount={changedCount} isDirty={isDirty} showApplied={showApplied} />
+        <div className="dec-sidebar-form-footer-status-column">
+          <DraftStatus changedCount={changedCount} isDirty={isDirty} showApplied={showApplied} />
+          {footerValidationState.showErrorUI && (
+            <>
+              <FooterValidationCounter count={errorCount} />
+              <UnplacedErrors />
+            </>
+          )}
+        </div>
         <div className="dec-sidebar-form-footer-actions">
           <Button type="button" variant="outline" onClick={handleCancel}>
             {t("sidebar.form.cancel")}
           </Button>
-          <Button type="button" onClick={handleApply} disabled={!isDirty}>
-            {t("sidebar.form.apply")}
+          <Button
+            type="button"
+            variant={footerValidationState.applyVariant}
+            onClick={handleApply}
+            disabled={!isDirty}
+          >
+            {t(footerValidationState.applyLabelKey)}
           </Button>
         </div>
       </div>

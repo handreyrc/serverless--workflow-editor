@@ -15,15 +15,26 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import type { UseFormReturn } from "react-hook-form";
 import type { FormFieldDescriptor } from "../../../../src/core/schemaToFormFields";
 import { useFieldLevelValidation } from "../../../../src/side-panel/forms/validation/useFieldLevelValidation";
 import { validateTaskData } from "../../../../src/side-panel/forms/validation/schemaValidator";
+import {
+  TaskValidationProvider,
+  useTaskValidation,
+} from "../../../../src/side-panel/forms/validation/taskValidationContext";
 
 vi.mock("../../../../src/side-panel/forms/validation/schemaValidator", () => ({
   validateTaskData: vi.fn().mockReturnValue(null),
 }));
+
+const EMPTY_RESULT = {
+  fieldErrors: {},
+  levelErrors: {},
+  unplacedErrors: {},
+  hasUnparseableValueMapPayload: false,
+};
 
 describe("useFieldLevelValidation", () => {
   beforeEach(() => {
@@ -64,7 +75,9 @@ describe("useFieldLevelValidation", () => {
       clearErrors,
     } as unknown as UseFormReturn<Record<string, unknown>>;
 
-    const { result } = renderHook(() => useFieldLevelValidation("wait", form, true, fields));
+    const { result } = renderHook(() => useFieldLevelValidation("wait", form, true, fields), {
+      wrapper: TaskValidationProvider,
+    });
 
     result.current.validateField("wait");
 
@@ -87,11 +100,14 @@ describe("useFieldLevelValidation", () => {
     const clearErrors = vi.fn();
     const form = {
       getValues: vi.fn().mockReturnValue({ wait: "invalid-duration" }),
+      formState: { errors: {} },
       setError,
       clearErrors,
     } as unknown as UseFormReturn<Record<string, unknown>>;
 
-    const { result } = renderHook(() => useFieldLevelValidation("wait", form, false, fields));
+    const { result } = renderHook(() => useFieldLevelValidation("wait", form, false, fields), {
+      wrapper: TaskValidationProvider,
+    });
 
     result.current.validateField("wait");
 
@@ -109,11 +125,14 @@ describe("useFieldLevelValidation", () => {
     const clearErrors = vi.fn();
     const form = {
       getValues: vi.fn().mockReturnValue({ wait: "PT5S" }),
+      formState: { errors: {} },
       setError,
       clearErrors,
     } as unknown as UseFormReturn<Record<string, unknown>>;
 
-    const { result } = renderHook(() => useFieldLevelValidation("wait", form, false, fields));
+    const { result } = renderHook(() => useFieldLevelValidation("wait", form, false, fields), {
+      wrapper: TaskValidationProvider,
+    });
 
     result.current.validateField("wait");
 
@@ -125,11 +144,14 @@ describe("useFieldLevelValidation", () => {
     const clearErrors = vi.fn();
     const form = {
       getValues: vi.fn().mockReturnValue({ auth: { token: "" } }),
+      formState: { errors: {} },
       setError,
       clearErrors,
     } as unknown as UseFormReturn<Record<string, unknown>>;
 
-    const { result } = renderHook(() => useFieldLevelValidation("call", form, false, fields));
+    const { result } = renderHook(() => useFieldLevelValidation("call", form, false, fields), {
+      wrapper: TaskValidationProvider,
+    });
 
     result.current.validateField("auth.token");
 
@@ -143,11 +165,14 @@ describe("useFieldLevelValidation", () => {
     const clearErrors = vi.fn();
     const form = {
       getValues: vi.fn().mockReturnValue({}),
+      formState: { errors: {} },
       setError,
       clearErrors,
     } as unknown as UseFormReturn<Record<string, unknown>>;
 
-    const { result } = renderHook(() => useFieldLevelValidation("wait", form, false, fields));
+    const { result } = renderHook(() => useFieldLevelValidation("wait", form, false, fields), {
+      wrapper: TaskValidationProvider,
+    });
 
     result.current.validateField("");
     result.current.validateField("__oneof__.auth");
@@ -192,12 +217,14 @@ describe("useFieldLevelValidation", () => {
     const clearErrors = vi.fn();
     const form = {
       getValues: vi.fn().mockReturnValue({ with: { endpoint: "" } }),
+      formState: { errors: {} },
       setError,
       clearErrors,
     } as unknown as UseFormReturn<Record<string, unknown>>;
 
-    const { result } = renderHook(() =>
-      useFieldLevelValidation("callTask", form, false, requiredSectionFields),
+    const { result } = renderHook(
+      () => useFieldLevelValidation("callTask", form, false, requiredSectionFields),
+      { wrapper: TaskValidationProvider },
     );
 
     result.current.validateField("with.endpoint");
@@ -220,14 +247,141 @@ describe("useFieldLevelValidation", () => {
         __oneof__: { auth: { __self__: "bearer" } },
         wait: "PT10S",
       }),
+      formState: { errors: {} },
       setError,
       clearErrors,
     } as unknown as UseFormReturn<Record<string, unknown>>;
 
-    const { result } = renderHook(() => useFieldLevelValidation("wait", form, false, fields));
+    const { result } = renderHook(() => useFieldLevelValidation("wait", form, false, fields), {
+      wrapper: TaskValidationProvider,
+    });
 
     result.current.validateField("wait");
 
     expect(clearErrors).toHaveBeenCalledWith("wait");
+  });
+
+  describe("after latch (attempted === true)", () => {
+    it("runs task-level validation on blur and updates the validation context", () => {
+      vi.mocked(validateTaskData).mockReturnValue([
+        {
+          keyword: "pattern",
+          instancePath: "/wait",
+          schemaPath: "#/properties/wait/pattern",
+          params: { pattern: "^P" },
+          message: 'must match pattern "^P"',
+        },
+      ]);
+
+      const setError = vi.fn();
+      const clearErrors = vi.fn();
+      const form = {
+        getValues: vi.fn().mockReturnValue({ wait: "invalid" }),
+        formState: { errors: {} },
+        setError,
+        clearErrors,
+      } as unknown as UseFormReturn<Record<string, unknown>>;
+
+      const { result } = renderHook(
+        () => {
+          const validation = useTaskValidation();
+          const fieldValidation = useFieldLevelValidation("wait", form, false, fields);
+          return { validation, fieldValidation };
+        },
+        { wrapper: TaskValidationProvider },
+      );
+
+      // Set attempted latch to true
+      act(() => {
+        result.current.validation.recordValidationResult(EMPTY_RESULT, true);
+      });
+
+      // Blur field
+      act(() => {
+        result.current.fieldValidation.validateField("wait");
+      });
+
+      expect(result.current.validation.taskValidation.fieldErrors["wait"]).toBe(
+        'must match pattern "^P"',
+      );
+      expect(result.current.validation.errorCount).toBe(1);
+    });
+
+    it("clears workflow error on blurred field before running task validation", () => {
+      const setError = vi.fn();
+      const clearErrors = vi.fn();
+      const form = {
+        getValues: vi.fn().mockReturnValue({ wait: "PT5S" }),
+        formState: { errors: { wait: { type: "workflow", message: "Workflow err" } } },
+        setError,
+        clearErrors,
+      } as unknown as UseFormReturn<Record<string, unknown>>;
+
+      const { result } = renderHook(
+        () => {
+          const validation = useTaskValidation();
+          const fieldValidation = useFieldLevelValidation("wait", form, false, fields);
+          return { validation, fieldValidation };
+        },
+        { wrapper: TaskValidationProvider },
+      );
+
+      act(() => {
+        result.current.validation.recordValidationResult(EMPTY_RESULT, true);
+      });
+
+      act(() => {
+        result.current.fieldValidation.validateField("wait");
+      });
+
+      // Clears the error on the blurred field first
+      expect(clearErrors).toHaveBeenCalledWith("wait");
+      expect(result.current.validation.errorCount).toBe(0);
+    });
+
+    it("revalidateIfAttempted re-runs whole task validation when attempted is true", () => {
+      vi.mocked(validateTaskData).mockReturnValue([
+        {
+          keyword: "pattern",
+          instancePath: "/wait",
+          schemaPath: "#/properties/wait/pattern",
+          params: { pattern: "^P" },
+          message: 'must match pattern "^P"',
+        },
+      ]);
+
+      const setError = vi.fn();
+      const clearErrors = vi.fn();
+      const form = {
+        getValues: vi.fn().mockReturnValue({ wait: "invalid" }),
+        formState: { errors: {} },
+        setError,
+        clearErrors,
+      } as unknown as UseFormReturn<Record<string, unknown>>;
+
+      const { result } = renderHook(
+        () => {
+          const validation = useTaskValidation();
+          const fieldValidation = useFieldLevelValidation("wait", form, false, fields);
+          return { validation, fieldValidation };
+        },
+        { wrapper: TaskValidationProvider },
+      );
+
+      // When attempted is false, revalidateIfAttempted does nothing
+      act(() => {
+        result.current.fieldValidation.revalidateIfAttempted();
+      });
+      expect(result.current.validation.errorCount).toBe(0);
+
+      // When attempted is true, revalidateIfAttempted updates state
+      act(() => {
+        result.current.validation.recordValidationResult(EMPTY_RESULT, true);
+      });
+      act(() => {
+        result.current.fieldValidation.revalidateIfAttempted();
+      });
+      expect(result.current.validation.errorCount).toBe(1);
+    });
   });
 });

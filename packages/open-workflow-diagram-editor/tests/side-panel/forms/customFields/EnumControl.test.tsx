@@ -14,14 +14,17 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import * as React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FormProvider, useForm } from "react-hook-form";
 import { I18nProvider } from "@openworkflowspec/i18n";
 import { en } from "../../../../src/i18n/locales/en";
-import { EnumControl } from "../../../../src/side-panel/forms/customFields/EnumControl";
-import { getInnerObjectForPath } from "../../../../src/side-panel/forms/customFields/EnumControl";
+import {
+  EnumControl,
+  getInnerObjectForPath,
+} from "../../../../src/side-panel/forms/customFields/EnumControl";
 import { TaskFormContext } from "../../../../src/side-panel/forms/taskFormContext";
 import type { EnumField } from "../../../../src/core/schemaToFormFields";
 
@@ -56,19 +59,33 @@ function EnumControlWrapper({
   defaultValue,
   taskData = {},
   isReadOnly = false,
+  validateField,
+  errorMessage,
 }: {
   field: EnumField;
   defaultValue?: unknown;
   taskData?: Record<string, unknown>;
   isReadOnly?: boolean;
+  validateField?: (path: string) => void;
+  errorMessage?: string;
 }) {
   const form = useForm<Record<string, unknown>>({
     defaultValues: defaultValue !== undefined ? { [field.path]: defaultValue } : {},
   });
 
+  React.useEffect(() => {
+    if (errorMessage) {
+      form.setError(field.path, { type: "schema", message: errorMessage });
+    } else {
+      form.clearErrors(field.path);
+    }
+  }, [form, field.path, errorMessage]);
+
   return (
     <I18nProvider locale="en" dictionaries={{ en }}>
-      <TaskFormContext.Provider value={{ isReadOnly, siblingTaskNames: [], taskData }}>
+      <TaskFormContext.Provider
+        value={{ isReadOnly, siblingTaskNames: [], taskData, validateField }}
+      >
         <FormProvider {...form}>
           <EnumControl field={field} id={`field-${field.path}`} />
         </FormProvider>
@@ -149,33 +166,45 @@ describe("EnumControl — valueMap enum with inner object textarea", () => {
     expect(getInnerObjectForPath("catch.retry.backoff", "yaml")).toEqual({ multiplier: 3 });
   });
 
-  it("shows a parse-error message when the inner textarea contains malformed YAML", () => {
-    render(<EnumControlWrapper field={backoffEnumField} defaultValue={{ exponential: {} }} />);
+  it("renders a single error message beneath the textarea when an error is present", () => {
+    render(
+      <EnumControlWrapper
+        field={backoffEnumField}
+        defaultValue={{ exponential: {} }}
+        errorMessage="Must be a valid YAML/JSON object"
+      />,
+    );
 
     const textarea = screen.getByRole("textbox", { name: "exponential" });
-    fireEvent.change(textarea, { target: { value: "[unclosed" } });
-
-    expect(screen.getByRole("alert")).toHaveTextContent("Must be a valid YAML/JSON object");
+    const alerts = screen.getAllByRole("alert");
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent("Must be a valid YAML/JSON object");
     expect(textarea).toHaveAttribute("aria-invalid", "true");
   });
 
-  it("shows a parse-error message when the inner textarea contains a scalar value", () => {
-    render(<EnumControlWrapper field={backoffEnumField} defaultValue={{ exponential: {} }} />);
+  it("calls validateField on textarea blur", () => {
+    const validateField = vi.fn();
+    render(
+      <EnumControlWrapper
+        field={backoffEnumField}
+        defaultValue={{ exponential: {} }}
+        validateField={validateField}
+      />,
+    );
 
     const textarea = screen.getByRole("textbox", { name: "exponential" });
-    fireEvent.change(textarea, { target: { value: "just-a-string" } });
+    fireEvent.blur(textarea);
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Must be a valid YAML/JSON object");
+    expect(validateField).toHaveBeenCalledWith("catch.retry.backoff");
   });
 
-  it("clears the parse-error message when the textarea is fixed to valid YAML", () => {
-    render(<EnumControlWrapper field={backoffEnumField} defaultValue={{ exponential: {} }} />);
+  it("renders error message beneath combobox when inner textarea is not visible", () => {
+    render(
+      <EnumControlWrapper field={plainEnumField} defaultValue="get" errorMessage="Field error" />,
+    );
 
-    const textarea = screen.getByRole("textbox", { name: "exponential" });
-    fireEvent.change(textarea, { target: { value: "[unclosed" } });
-    expect(screen.getByRole("alert")).toBeInTheDocument();
-
-    fireEvent.change(textarea, { target: { value: "rate: 2" } });
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    const alerts = screen.getAllByRole("alert");
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent("Field error");
   });
 });
