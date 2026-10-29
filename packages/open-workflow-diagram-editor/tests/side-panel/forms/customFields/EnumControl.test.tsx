@@ -18,15 +18,13 @@ import { describe, it, expect, vi } from "vitest";
 import * as React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, type UseFormReturn } from "react-hook-form";
 import { I18nProvider } from "@openworkflowspec/i18n";
 import { en } from "../../../../src/i18n/locales/en";
-import {
-  EnumControl,
-  getInnerObjectForPath,
-} from "../../../../src/side-panel/forms/customFields/EnumControl";
+import { EnumControl } from "../../../../src/side-panel/forms/customFields/EnumControl";
 import { TaskFormContext } from "../../../../src/side-panel/forms/taskFormContext";
 import type { EnumField } from "../../../../src/core/schemaToFormFields";
+import { innerTextPath } from "../../../../src/side-panel/forms/sentinels";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -61,6 +59,7 @@ function EnumControlWrapper({
   isReadOnly = false,
   validateField,
   errorMessage,
+  formRef,
 }: {
   field: EnumField;
   defaultValue?: unknown;
@@ -68,9 +67,13 @@ function EnumControlWrapper({
   isReadOnly?: boolean;
   validateField?: (path: string) => void;
   errorMessage?: string;
+  formRef?: { current: UseFormReturn<Record<string, unknown>> | null };
 }) {
   const form = useForm<Record<string, unknown>>({
     defaultValues: defaultValue !== undefined ? { [field.path]: defaultValue } : {},
+  });
+  React.useLayoutEffect(() => {
+    if (formRef) formRef.current = form;
   });
 
   React.useEffect(() => {
@@ -93,40 +96,6 @@ function EnumControlWrapper({
     </I18nProvider>
   );
 }
-
-// ---------------------------------------------------------------------------
-// getInnerObjectForPath unit tests
-// ---------------------------------------------------------------------------
-
-describe("getInnerObjectForPath", () => {
-  it("returns empty object for an untracked path", () => {
-    expect(getInnerObjectForPath("untracked.path", "yaml")).toEqual({});
-    expect(getInnerObjectForPath("untracked.path", "json")).toEqual({});
-  });
-
-  it("returns null for malformed YAML", () => {
-    render(<EnumControlWrapper field={backoffEnumField} defaultValue={{ exponential: {} }} />);
-    const textarea = screen.getByRole("textbox", { name: "exponential" });
-    fireEvent.change(textarea, { target: { value: "[unclosed" } });
-    expect(getInnerObjectForPath("catch.retry.backoff", "yaml")).toBeNull();
-  });
-
-  it("returns null for a valid YAML scalar (non-object)", () => {
-    render(<EnumControlWrapper field={backoffEnumField} defaultValue={{ exponential: {} }} />);
-    const textarea = screen.getByRole("textbox", { name: "exponential" });
-    fireEvent.change(textarea, { target: { value: "42" } });
-    expect(getInnerObjectForPath("catch.retry.backoff", "yaml")).toBeNull();
-  });
-
-  it("returns empty object when textarea is cleared", () => {
-    render(
-      <EnumControlWrapper field={backoffEnumField} defaultValue={{ exponential: { rate: 2 } }} />,
-    );
-    const textarea = screen.getByRole("textbox", { name: "exponential" });
-    fireEvent.change(textarea, { target: { value: "" } });
-    expect(getInnerObjectForPath("catch.retry.backoff", "yaml")).toEqual({});
-  });
-});
 
 // ---------------------------------------------------------------------------
 // EnumControl rendering
@@ -156,14 +125,22 @@ describe("EnumControl — valueMap enum with inner object textarea", () => {
     expect(textarea).toHaveValue("rate: 2");
   });
 
-  it("updates innerObjectTextStore when the user edits the inner textarea", async () => {
+  // In the form values, not in the row: a drill unmounts the row and Apply reads the text.
+  it("keeps the inner text in the form values", async () => {
     const user = userEvent.setup();
-    render(<EnumControlWrapper field={backoffEnumField} defaultValue={{ exponential: {} }} />);
+    const formRef: { current: UseFormReturn<Record<string, unknown>> | null } = { current: null };
+    render(
+      <EnumControlWrapper
+        field={backoffEnumField}
+        defaultValue={{ exponential: {} }}
+        formRef={formRef}
+      />,
+    );
 
     const textarea = screen.getByRole("textbox", { name: "exponential" });
     await user.type(textarea, "multiplier: 3");
 
-    expect(getInnerObjectForPath("catch.retry.backoff", "yaml")).toEqual({ multiplier: 3 });
+    expect(formRef.current!.getValues(innerTextPath("catch.retry.backoff"))).toBe("multiplier: 3");
   });
 
   it("renders a single error message beneath the textarea when an error is present", () => {

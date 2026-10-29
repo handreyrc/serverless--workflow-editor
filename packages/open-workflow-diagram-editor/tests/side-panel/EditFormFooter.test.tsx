@@ -152,7 +152,7 @@ describe("EditFormFooter", () => {
         });
 
         expect(screen.queryByText("Applied")).not.toBeInTheDocument();
-        expect(screen.getByText("No changes")).toBeInTheDocument();
+        expect(screen.getByRole("status")).toBeEmptyDOMElement();
       });
     });
   });

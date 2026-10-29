@@ -218,14 +218,6 @@
     animation: dec-sidebar-status-in 140ms ease-out;
   }
 
-  .dec-root .dec-sidebar-form-footer-status.nochanges {
-    @apply dec:font-normal dec:text-gray-500;
-  }
-
-  .dec-root.dark .dec-sidebar-form-footer-status.nochanges {
-    @apply dec:text-gray-400;
-  }
-
   .dec-root.dark .dec-sidebar-form-footer-status-icon {
     @apply dec:h-3.5 dec:w-3.5 dec:shrink-0;
   }

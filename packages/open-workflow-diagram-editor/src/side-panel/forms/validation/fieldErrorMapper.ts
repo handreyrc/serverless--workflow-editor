@@ -17,7 +17,7 @@
 import type { ErrorObject } from "ajv/dist/2020";
 import type { FormFieldDescriptor } from "@/core/schemaToFormFields";
 import { flattenTask, unflattenValues } from "@/core/taskDraft";
-import { SENTINEL_KEY, sentinelPath } from "../sentinels";
+import { isReservedPath, sentinelPath } from "../sentinels";
 import {
   collectLeafKinds,
   collectValueMapFields,
@@ -26,7 +26,7 @@ import {
   selectedVariantIndex,
   valueMapModelValue,
 } from "../taskFormContext";
-import { getValueMapInnerObject } from "../customFields/EnumControl";
+import { getValueMapInnerObject } from "../customFields/innerObjectText";
 
 // ---------------------------------------------------------------------------
 // Form value sanitization for Ajv schema validation
@@ -46,7 +46,7 @@ export function prepareValuesForValidation(
   // Remove internal sentinel keys
   const cleanedFlat: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(flat)) {
-    if (key.startsWith(SENTINEL_KEY)) {
+    if (isReservedPath(key)) {
       continue;
     }
     // Prune empty strings, null, undefined
@@ -68,7 +68,11 @@ export function prepareValuesForValidation(
       }
     }
     // An unparseable payload is reported inline by EnumControl; validate it as empty here.
-    const modelValue = valueMapModelValue(field, live, getValueMapInnerObject(field, live) ?? {});
+    const modelValue = valueMapModelValue(
+      field,
+      live,
+      getValueMapInnerObject(field, live, formValues) ?? {},
+    );
     if (modelValue !== undefined) {
       cleanedFlat[field.path] = modelValue;
     }
@@ -113,7 +117,7 @@ export function isSectionEmpty(sectionPath: string, formValues: Record<string, u
 
   for (const [key, val] of Object.entries(flat)) {
     if (sectionPath === "" || key === sectionPath || key.startsWith(prefix)) {
-      if (key.startsWith(SENTINEL_KEY)) {
+      if (isReservedPath(key)) {
         continue;
       }
       if (val !== "" && val !== null && val !== undefined) {

@@ -381,3 +381,151 @@ describe("StructuredValueField — read-only mode", () => {
     expect(getTextarea()).not.toBeDisabled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tests — variant-switch mount
+// ---------------------------------------------------------------------------
+
+/**
+ * Tests for the kind-boundary clearing behaviour introduced to fix the
+ * Expression→Data variant switch bug.
+ *
+ * Root cause: when the user switches from the Expression (string) variant to
+ * the Data (json) variant, both variants share the same path. Before
+ * StructuredValueField mounts, handleVariantChange calls setValue(path, undefined)
+ * to clear the stale expression string. StructuredValueField must detect this
+ * explicit clear and open with an empty textarea rather than showing the
+ * expression value from defaultValues.
+ *
+ * The fix uses getValues(path) on mount, which reads _formValues directly
+ * without the defaultValues fallback that rhfField.value and useWatch apply.
+ *
+ * NOTE: RHF's getValues uses _formValues only when _state.mount is true (i.e.
+ * at least one field has been registered). These tests use a two-phase render
+ * pattern: the form mounts initially with a different "phase" so the form is
+ * fully mounted (_state.mount = true), then a synchronous setValue + phase
+ * switch inside act() mirrors what handleVariantChange does in production
+ * (it fires on user interaction when the form is already mounted, then React
+ * unmounts the old variant and mounts StructuredValueField in the same flush).
+ */
+
+describe("StructuredValueField — variant-switch mount behaviour", () => {
+  it("shows empty textarea when live value was cleared to undefined before remount (Expression→Data switch)", async () => {
+    // Switching from expression to structured variant:
+    // 
+    // 1. Form starts with expression string from committed task
+    // 2. User switches variants → handleVariantChange clears the path with setValue(undefined)
+    // 3. React mounts StructuredValueField
+    // 4. Controller restores the old string value from defaultValues
+    // 5. StructuredValueField detects mismatch (string value but not dirty) → shows empty textarea
+    const defaults = { emit: { event: { with: { data: "${expr}" } } } };
+
+    const trigger = { doSwitch: undefined as (() => void) | undefined };
+
+    function TwoPhaseWrapper() {
+      const form = useForm<Record<string, unknown>>({ defaultValues: defaults });
+      const [phase, setPhase] = React.useState<"string" | "json">("string");
+
+      const doSwitch =  React.useCallback(() => {
+        // Mirror handleVariantChange: clear the path (kind boundary) with
+        // shouldDirty: false — dirty is owned by the sentinel, not this path.
+        form.setValue(yamlField.path as never, undefined as never, { shouldDirty: false });
+        setPhase("json");
+      }, [form, setPhase]);
+      React.useEffect(()=>{
+        trigger.doSwitch = doSwitch
+      },[doSwitch])
+
+      return (
+        <I18nProvider locale="en" dictionaries={{ en }}>
+          <TaskFormContext.Provider
+            value={{ isReadOnly: false, siblingTaskNames: [], taskData: {} }}
+          >
+            <FormProvider {...form}>
+              {/* "string" phase keeps a dummy registered field so _state.mount = true */}
+              {phase === "string" && (
+                <input {...form.register(yamlField.path as never)} style={{ display: "none" }} />
+              )}
+              {phase === "json" && <StructuredValueField field={yamlField} />}
+            </FormProvider>
+          </TaskFormContext.Provider>
+        </I18nProvider>
+      );
+    }
+
+    render(<TwoPhaseWrapper />);
+    expect(screen.queryByRole("textbox")).toBeNull(); // json field not mounted yet
+
+    await act(async () => {
+      trigger.doSwitch?.();
+    });
+
+    expect(getTextarea().value).toBe("");
+  });
+
+  it("shows restored structured value when live value was set before remount (Data→Expression→Data round-trip)", async () => {
+    // Switching back to Data variant should restore the saved object, not show empty textarea
+    const savedData = { name: "Alice" };
+
+    const trigger = { doRestore: undefined as (() => void) | undefined };
+
+    function TwoPhaseWrapper() {
+      const form = useForm<Record<string, unknown>>({ defaultValues: {} });
+      const [phase, setPhase] = React.useState<"string" | "json">("string");
+
+      const doRestore = React.useCallback(() => {
+        form.setValue(yamlField.path as never, savedData as never, { shouldDirty: true });
+        setPhase("json");
+      }, [form, setPhase]);
+            React.useEffect(()=>{
+        trigger.doRestore = doRestore
+      },[doRestore])
+
+      return (
+        <I18nProvider locale="en" dictionaries={{ en }}>
+          <TaskFormContext.Provider
+            value={{ isReadOnly: false, siblingTaskNames: [], taskData: {} }}
+          >
+            <FormProvider {...form}>
+              {phase === "string" && (
+                <input {...form.register(yamlField.path as never)} style={{ display: "none" }} />
+              )}
+              {phase === "json" && <StructuredValueField field={yamlField} />}
+            </FormProvider>
+          </TaskFormContext.Provider>
+        </I18nProvider>
+      );
+    }
+
+    render(<TwoPhaseWrapper />);
+
+    await act(async () => {
+      trigger.doRestore?.();
+    });
+
+    expect(getTextarea().value).toContain("name: Alice");
+  });
+
+  it("shows committed task value on normal task open (no variant switch, defaultValues present)", () => {
+    // Normal flow: Form opens with task data, no variant switch.
+    // Field not registered yet > useState reads from defaultValues > shows committed value
+    const defaults = { emit: { event: { with: { data: { key: "committed" } } } } };
+
+    function PlainWrapper() {
+      const form = useForm<Record<string, unknown>>({ defaultValues: defaults });
+      return (
+        <I18nProvider locale="en" dictionaries={{ en }}>
+          <TaskFormContext.Provider
+            value={{ isReadOnly: false, siblingTaskNames: [], taskData: {} }}
+          >
+            <FormProvider {...form}>
+              <StructuredValueField field={yamlField} />
+            </FormProvider>
+          </TaskFormContext.Provider>
+        </I18nProvider>
+      );
+    }
+    render(<PlainWrapper />);
+    expect(getTextarea().value).toContain("key: committed");
+  });
+});

@@ -21,13 +21,10 @@ import type { BaseNodeData } from "@/react-flow/nodes/Nodes";
 import { useI18n } from "@openworkflowspec/i18n";
 import { SidebarFooter } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { useFormState } from "react-hook-form";
 import { updateTask } from "@/core/workflowEditing";
-import { applyDirtyValues, flattenTask, setNestedPath } from "@/core/taskDraft";
 import { getFormFieldsForNodeType } from "@/core";
-import { getValueMapInnerObject } from "@/side-panel/forms/customFields/EnumControl";
 import { useDiagramEditorContext } from "@/store/DiagramEditorContext";
-import { useEditSession } from "./EditSession";
+import { useDraftChanges, useEditSession } from "./EditSession";
 import {
   useTaskValidation,
   validateTaskForm,
@@ -38,43 +35,32 @@ import {
 } from "./forms/validation";
 import { Check } from "lucide-react";
 import type { Specification } from "@openworkflowspec/sdk";
-import {
-  collectFormListPaths,
-  collectJsonPaths,
-  collectSelectedVariants,
-  collectValueMapFields,
-  collectVariantFieldPaths,
-  collectWholeValuePaths,
-  computeSentinelDefaults,
-  getNestedValue,
-  padRemovedPaths,
-  valueMapModelValue,
-} from "./forms/taskFormContext";
-import { SENTINEL_KEY, SENTINEL_PREFIX, SENTINEL_SUFFIX } from "@/side-panel/forms/sentinels";
-import { changedPaths } from "./forms/draftChanges";
+import { readSentinels } from "@/side-panel/forms/sentinels";
+import { buildTaskFromDraft } from "./forms/draft";
 
 /* How long the applied message stays in footer */
 const APPLIED_MESSAGE_MS = 2400;
 
 type DraftStatusProps = {
   changedCount: number;
-  isDirty: boolean;
+  hasChanges: boolean;
   showApplied: boolean;
 };
 
-function DraftStatus({ changedCount, isDirty, showApplied }: DraftStatusProps) {
+function DraftStatus({ changedCount, hasChanges, showApplied }: DraftStatusProps) {
   const { t } = useI18n();
 
-  const variant = isDirty ? "changed" : showApplied ? "applied" : "nochanges";
+  // Keep live region for accessibility announcements.
+  const variant = hasChanges ? "changed" : showApplied ? "applied" : undefined;
   const label =
     variant === "changed"
       ? `${changedCount} ${t("sidebar.form.changed")}`
       : variant === "applied"
         ? t("sidebar.form.applied")
-        : t("sidebar.form.noChanges");
+        : "";
 
   return (
-    <span className={`dec-sidebar-form-footer-status ${variant}`} role="status">
+    <span className={`dec-sidebar-form-footer-status ${variant ?? ""}`} role="status">
       {variant === "applied" ? (
         <Check className="dec-sidebar-form-footer-status-icon" aria-hidden="true" />
       ) : null}
@@ -100,8 +86,9 @@ function resolveTaskId(node: RF.Node<BaseNodeData>): string {
 
 export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
   const { t } = useI18n();
-  const { form } = useEditSession();
-  const { commitWorkflow, isReadOnly, model } = useDiagramEditorContext();
+  const { form, liveFormState, resetDraft } = useEditSession();
+  const { hasChanges, paths: changed } = useDraftChanges();
+  const { commitWorkflow, isReadOnly, model, contentFormat } = useDiagramEditorContext();
   const { taskValidation, errorCount, recordValidationResult, resetValidation } =
     useTaskValidation();
   const footerValidationState = deriveFooterValidationState(taskValidation, errorCount);
@@ -118,13 +105,11 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
     [],
   );
 
-  const { dirtyFields, isDirty, defaultValues } = useFormState({ control: form.control });
   const nodeType = node.type ?? "";
   const allFields = React.useMemo(
-    () => (nodeType ? getFormFieldsForNodeType(nodeType) : []),
-    [nodeType],
+    () => (nodeType ? getFormFieldsForNodeType(nodeType, contentFormat) : []),
+    [nodeType, contentFormat],
   );
-  const jsonPaths = React.useMemo(() => collectJsonPaths(allFields), [allFields]);
   const task = node.data.task;
   const taskId = resolveTaskId(node);
   const showApplied = appliedNodeId === node.id;
@@ -134,20 +119,9 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
     return null;
   }
 
-  const changedCount = changedPaths(
-    dirtyFields,
-    form.getValues(),
-    defaultValues as Record<string, unknown> | undefined,
-    jsonPaths,
-  ).length;
-
   const handleCancel = () => {
     resetValidation();
-    const sentinelDefaults = computeSentinelDefaults(allFields, task as Record<string, unknown>);
-    form.reset({
-      ...(task as Record<string, unknown>),
-      ...(Object.keys(sentinelDefaults).length > 0 ? { [SENTINEL_KEY]: sentinelDefaults } : {}),
-    });
+    resetDraft(allFields, task as Record<string, unknown>);
     setAppliedNodeId(null);
   };
 
@@ -161,115 +135,24 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
       return;
     }
 
-    // A JSON/YAML value is written whole, else a key deleted from its text would survive Apply.
-    const flatValues = flattenTask(form.getValues(), "", jsonPaths);
-    const rawFlatDirty = Object.keys(flattenTask(dirtyFields, "", jsonPaths));
-    const flatDirty = new Set<string>();
-    const sentinelPaths = new Set<string>();
-    for (const path of rawFlatDirty) {
-      if (path.startsWith(SENTINEL_PREFIX)) {
-        sentinelPaths.add(path.slice(SENTINEL_PREFIX.length, -SENTINEL_SUFFIX.length));
-      } else {
-        flatDirty.add(path);
-      }
-    }
-
-    // Build constWrites and stalePaths: find each sentinel-dirty path's selected
-    // variant, collect its const discriminator properties, and compute the paths
-    // that are exclusive to the non-selected variants so they can be removed.
-    const flatTask = flattenTask(task as Record<string, unknown>);
-    for (const enumField of collectValueMapFields(allFields)) {
-      // Read via getValues(path) — reads _formValues directly, bypassing the
-      // defaultValues fallback that getValues() (no args) applies for absent keys.
-      const live = form.getValues(enumField.path as never) as unknown;
-      const raw =
-        typeof live === "string" || live === undefined ? live : flatValues[enumField.path];
-      if (typeof raw === "string") {
-        // Read the inner object content from the module-level store populated by EnumControl.
-        const innerObj = getValueMapInnerObject(enumField, raw);
-        // Keep the draft and inline parse error intact; do not partially commit the form.
-        if (innerObj === null) return;
-        flatValues[enumField.path] = valueMapModelValue(enumField, raw, innerObj);
-        flatDirty.add(enumField.path);
-      } else if (raw === undefined && flatTask[enumField.path] !== undefined) {
-        flatValues[enumField.path] = undefined;
-        flatDirty.add(enumField.path);
-      }
-    }
-
-    const selectedVariants = collectSelectedVariants(allFields, flatValues);
-    const liveSentinelPaths = new Set([...sentinelPaths].filter((p) => selectedVariants.has(p)));
-    const sentinelConstWrites = new Map<string, Record<string, unknown>>();
-    const sentinelStalePaths = new Map<string, string[]>();
-    const sentinelPresenceKeys = new Map<string, string>();
-    for (const [oneOfPath, { variant }] of selectedVariants) {
-      if (variant.presenceKey !== undefined) {
-        sentinelPresenceKeys.set(oneOfPath, variant.presenceKey);
-      }
-    }
-    for (const sentinelPath of liveSentinelPaths) {
-      const { field: oneOfField, variant } = selectedVariants.get(sentinelPath)!;
-      if (Object.keys(variant.constWrites).length > 0) {
-        sentinelConstWrites.set(sentinelPath, variant.constWrites);
-      }
-      // Compute paths exclusive to the non-selected variants (i.e. absent from
-      // the selected variant's field tree). These need to be wiped from the model.
-      const selectedPaths = new Set(collectVariantFieldPaths(variant.fields));
-      const stalePaths = oneOfField.variants
-        .filter((v) => v !== variant)
-        .flatMap((v) => collectVariantFieldPaths(v.fields))
-        .filter((p) => !selectedPaths.has(p));
-      if (stalePaths.length > 0) {
-        sentinelStalePaths.set(sentinelPath, stalePaths);
-      }
-    }
-
-    const updated = applyDirtyValues(
-      task as unknown as Record<string, unknown>,
-      flatValues,
-      flatDirty,
-      liveSentinelPaths,
-      sentinelConstWrites,
-      sentinelStalePaths,
-      collectFormListPaths(allFields),
-      sentinelPresenceKeys,
-    ) as Specification.Task;
-    const updatedModel = updateTask(model, taskId, updated);
-    commitWorkflow(updatedModel);
+    const values = form.getValues();
+    const { task: updated, unparsed } = buildTaskFromDraft({
+      task: task as Record<string, unknown>,
+      fields: allFields,
+      values,
+      dirtyFields: liveFormState().dirtyFields,
+      liveValue: (path) => form.getValues(path as never) as unknown,
+    });
+    // Block commit if inner text fails to parse.
+    if (unparsed.length > 0) return;
+    commitWorkflow(updateTask(model, taskId, updated as Specification.Task));
     resetValidation();
     // Reset to committed state; pass current sentinel labels so variant
     // selections are preserved even when the cleared field has no data match.
-    const currentSentinels: Record<string, string> = {};
-    for (const [flatKey, val] of Object.entries(flatValues)) {
-      if (
-        flatKey.startsWith(SENTINEL_PREFIX) &&
-        flatKey.endsWith(SENTINEL_SUFFIX) &&
-        typeof val === "string"
-      ) {
-        currentSentinels[flatKey.slice(SENTINEL_PREFIX.length, -SENTINEL_SUFFIX.length)] = val;
-      }
-    }
-    const sentinelDefaults = computeSentinelDefaults(
-      allFields,
-      updated as Record<string, unknown>,
-      currentSentinels,
-    );
-    const resetVals: Record<string, unknown> = structuredClone({
-      ...(updated as Record<string, unknown>),
-      ...(Object.keys(sentinelDefaults).length > 0 ? { [SENTINEL_KEY]: sentinelDefaults } : {}),
+    resetDraft(allFields, updated, {
+      previousTask: task as Record<string, unknown>,
+      liveSentinels: readSentinels(values),
     });
-    padRemovedPaths(
-      resetVals,
-      task as Record<string, unknown>,
-      updated as Record<string, unknown>,
-      collectWholeValuePaths(allFields, updated as Record<string, unknown>),
-    );
-    for (const enumField of collectValueMapFields(allFields)) {
-      if (getNestedValue(updated as Record<string, unknown>, enumField.path) === undefined) {
-        setNestedPath(resetVals, enumField.path, "");
-      }
-    }
-    form.reset(resetVals);
     setAppliedNodeId(node.id);
 
     if (dismissTimer.current !== null) {
@@ -283,7 +166,11 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
     <SidebarFooter>
       <div className="dec-sidebar-form-footer">
         <div className="dec-sidebar-form-footer-status-column">
-          <DraftStatus changedCount={changedCount} isDirty={isDirty} showApplied={showApplied} />
+          <DraftStatus
+            changedCount={changed.length}
+            hasChanges={hasChanges}
+            showApplied={showApplied}
+          />
           {footerValidationState.showErrorUI && (
             <>
               <FooterValidationCounter count={errorCount} />
@@ -299,7 +186,7 @@ export function EditFormFooter({ node }: { node: RF.Node<BaseNodeData> }) {
             type="button"
             variant={footerValidationState.applyVariant}
             onClick={handleApply}
-            disabled={!isDirty}
+            disabled={!hasChanges}
           >
             {t(footerValidationState.applyLabelKey)}
           </Button>

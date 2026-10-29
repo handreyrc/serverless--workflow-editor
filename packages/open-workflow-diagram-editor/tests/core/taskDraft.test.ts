@@ -158,7 +158,9 @@ describe("applyDirtyValues", () => {
     const allValues = { "emit.event.with.data.key": "edited" };
     const dirtyPaths = new Set(["emit.event.with.data.key"]); // Controller marked this dirty
     const sentinelPaths = new Set(["emit.event.with.data"]); // sentinel also dirty
-    const result = applyDirtyValues(original, allValues, dirtyPaths, sentinelPaths);
+    const result = applyDirtyValues(original, allValues, dirtyPaths, {
+      sentinelPaths,
+    });
     // The independently dirty leaf must win — edited value is preserved.
     expect(result).toEqual({ emit: { event: { with: { data: { key: "edited" } } } } });
   });
@@ -173,7 +175,9 @@ describe("applyDirtyValues", () => {
     const allValues = { "emit.event.with.data.key": "${ .issue }" }; // stale default
     const dirtyPaths = new Set<string>(); // no independent dirty from Controller
     const sentinelPaths = new Set(["emit.event.with.data"]);
-    const result = applyDirtyValues(original, allValues, dirtyPaths, sentinelPaths);
+    const result = applyDirtyValues(original, allValues, dirtyPaths, {
+      sentinelPaths,
+    });
     expect(result).not.toHaveProperty("emit.event.with.data");
     // Only the switched key goes: the containers around it stay, so the task is still an emit task.
     expect(result).toEqual({ emit: { event: { with: {} } } });
@@ -185,9 +189,40 @@ describe("applyDirtyValues", () => {
       original,
       { "raise.error.type": undefined },
       new Set<string>(),
-      new Set(["raise.error.type"]),
+      {
+        sentinelPaths: new Set(["raise.error.type"]),
+      },
     );
     expect(result).toEqual({ raise: { error: {} } });
+  });
+
+  // A switch pads the new option's fields with "" (dirty); clearing them must not leave the
+  // old option's value behind. The empty container commits and the SDK reports what's missing.
+  it("replaces a value with an empty object when switched to an object option left empty", () => {
+    const original = { with: { proto: { endpoint: "file://app/greet.proto" } } };
+    const result = applyDirtyValues(
+      original,
+      { "with.proto.endpoint.uri": "", "with.proto.endpoint.authentication.use": "" },
+      new Set(["with.proto.endpoint.uri", "with.proto.endpoint.authentication.use"]),
+      { sentinelPaths: new Set(["with.proto.endpoint"]) },
+    );
+    expect(result).toEqual({ with: { proto: { endpoint: {} } } });
+  });
+
+  // A visit to the object option can leave its fields flagged dirty; a value the user then
+  // wrote at the one-of's own path (a non-object option) is what commits.
+  it.each([
+    ["a string", "file://app/other.proto"],
+    ["an array", ["a", "b"]],
+  ])("keeps %s written at the one-of's path despite stale dirty fields under it", (_l, value) => {
+    const original = { with: { proto: { endpoint: { uri: "file://app/greet.proto" } } } };
+    const result = applyDirtyValues(
+      original,
+      { "with.proto.endpoint": value, "with.proto.endpoint.uri": "" },
+      new Set(["with.proto.endpoint", "with.proto.endpoint.uri"]),
+      { sentinelPaths: new Set(["with.proto.endpoint"]) },
+    );
+    expect(result).toEqual({ with: { proto: { endpoint: value } } });
   });
 
   // `run` tells its process types apart by which key is present, so a switch that
@@ -210,16 +245,11 @@ describe("applyDirtyValues", () => {
   ])(
     "writes the presence key of a switched variant when %s",
     (_l, original, values, dirty, expected) => {
-      const result = applyDirtyValues(
-        original,
-        values,
-        dirty,
-        new Set(["run"]),
-        new Map(),
-        new Map([["run", ["run.shell.command"]]]),
-        new Set(),
-        new Map([["run", "container"]]),
-      );
+      const result = applyDirtyValues(original, values, dirty, {
+        sentinelPaths: new Set(["run"]),
+        sentinelStalePaths: new Map([["run", ["run.shell.command"]]]),
+        sentinelPresenceKeys: new Map([["run", "container"]]),
+      });
       expect(result).toEqual(expected);
     },
   );
@@ -229,11 +259,11 @@ describe("applyDirtyValues", () => {
       { run: { shell: { command: "ls" } } },
       { "run.container.image": "nginx" },
       new Set(["run.container.image"]),
-      new Set(["run"]),
-      new Map(),
-      new Map([["run", ["run.shell.command"]]]),
-      new Set(),
-      new Map([["run", "container"]]),
+      {
+        sentinelPaths: new Set(["run"]),
+        sentinelStalePaths: new Map([["run", ["run.shell.command"]]]),
+        sentinelPresenceKeys: new Map([["run", "container"]]),
+      },
     );
     expect(result).toEqual({ run: { container: { image: "nginx" } } });
   });
@@ -264,11 +294,9 @@ describe("applyDirtyValues", () => {
       structuredClone(original),
       { [cleared]: "" },
       new Set([cleared]),
-      new Set(),
-      new Map(),
-      new Map(),
-      new Set(),
-      new Map([presenceKey]),
+      {
+        sentinelPresenceKeys: new Map([presenceKey]),
+      },
     );
     expect(result).toEqual(expected);
   });
@@ -278,14 +306,12 @@ describe("applyDirtyValues", () => {
       { run: { shell: { command: "ls" } } },
       { "run.shell.command": "pwd" },
       new Set(["run.shell.command"]),
-      new Set(),
-      new Map(),
-      new Map(),
-      new Set(),
-      new Map([
-        ["run", "shell"],
-        ["input.schema", "document"],
-      ]),
+      {
+        sentinelPresenceKeys: new Map([
+          ["run", "shell"],
+          ["input.schema", "document"],
+        ]),
+      },
     );
     expect(result).toEqual({ run: { shell: { command: "pwd" } } });
   });
@@ -314,7 +340,9 @@ describe("applyDirtyValues", () => {
 
     const dirtyPaths = new Set(["raise.error"]);
     const sentinelPaths = new Set(["raise.error", "raise.error.type", "raise.error.title"]);
-    const result = applyDirtyValues(original, allValues, dirtyPaths, sentinelPaths);
+    const result = applyDirtyValues(original, allValues, dirtyPaths, {
+      sentinelPaths,
+    });
 
     expect(result).toEqual({
       raise: { error: { type: "https://example.com/errors/nope", status: 418 } },
@@ -348,15 +376,9 @@ describe("applyDirtyValues", () => {
         switchCase("fallback", "reject"),
       ];
 
-      const result = applyDirtyValues(
-        original,
-        { switch: edited },
-        new Set(["switch"]),
-        new Set(),
-        new Map(),
-        new Map(),
-        new Set(["switch"]),
-      );
+      const result = applyDirtyValues(original, { switch: edited }, new Set(["switch"]), {
+        formListPaths: new Set(["switch"]),
+      });
 
       expect(result).toEqual({
         switch: [
@@ -407,13 +429,10 @@ describe("applyDirtyValues", () => {
     const dirtyPaths = new Set<string>();
     const sentinelPaths = new Set([ROOT_ONE_OF_PATH]);
     const sentinelConstWrites = new Map([[ROOT_ONE_OF_PATH, { call: "mcp" }]]);
-    const result = applyDirtyValues(
-      original,
-      allValues,
-      dirtyPaths,
+    const result = applyDirtyValues(original, allValues, dirtyPaths, {
       sentinelPaths,
       sentinelConstWrites,
-    );
+    });
     // The call property must be updated to the new variant's value.
     expect(result.call).toBe("mcp");
   });
@@ -423,13 +442,10 @@ describe("applyDirtyValues", () => {
     const allValues = { "with.method": "GET" };
     const sentinelPaths = new Set([ROOT_ONE_OF_PATH]);
     const sentinelConstWrites = new Map([[ROOT_ONE_OF_PATH, { call: "grpc" }]]);
-    const result = applyDirtyValues(
-      original,
-      allValues,
-      new Set(),
+    const result = applyDirtyValues(original, allValues, new Set(), {
       sentinelPaths,
       sentinelConstWrites,
-    );
+    });
     expect(result).not.toHaveProperty(ROOT_ONE_OF_PATH);
     expect(result.call).toBe("grpc");
   });
@@ -442,13 +458,10 @@ describe("applyDirtyValues", () => {
     const dirtyPaths = new Set(["with.method"]);
     const sentinelPaths = new Set([ROOT_ONE_OF_PATH]);
     const sentinelConstWrites = new Map([[ROOT_ONE_OF_PATH, { call: "grpc" }]]);
-    const result = applyDirtyValues(
-      original,
-      allValues,
-      dirtyPaths,
+    const result = applyDirtyValues(original, allValues, dirtyPaths, {
       sentinelPaths,
       sentinelConstWrites,
-    );
+    });
     expect(result.call).toBe("grpc");
     expect((result.with as Record<string, unknown>).method).toBe("POST");
   });
@@ -458,13 +471,10 @@ describe("applyDirtyValues", () => {
     const allValues = { "with.method": "GET" };
     const sentinelPaths = new Set([ROOT_ONE_OF_PATH]);
     const sentinelConstWrites = new Map<string, Record<string, unknown>>();
-    const result = applyDirtyValues(
-      original,
-      allValues,
-      new Set(),
+    const result = applyDirtyValues(original, allValues, new Set(), {
       sentinelPaths,
       sentinelConstWrites,
-    );
+    });
     expect(result.call).toBe("http");
   });
 });

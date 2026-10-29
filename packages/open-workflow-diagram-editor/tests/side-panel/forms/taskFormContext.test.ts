@@ -673,11 +673,19 @@ describe("computeSentinelDefaults", () => {
     });
   });
 
-  it("records only the chosen variant when it has no one-ofs inside it", () => {
+  // Switching to the definition mounts these pickers; without a default each would stay
+  // dirty after switching back. The labels are what each picker shows when it first mounts.
+  it("records the one-ofs of a variant the task has not committed", () => {
     const sentinels = computeSentinelDefaults(raiseFields, taskAt("/do/raiseByReference"));
 
     expect(sentinels.raise).toEqual({
-      error: { __self__: "Raise Error Reference" },
+      error: {
+        __self__: "Raise Error Reference",
+        type: { __self__: "Literal Error Type" },
+        instance: { __self__: "Literal Error Instance" },
+        title: { __self__: "Expression Error Title" },
+        detail: { __self__: "Expression Error Details" },
+      },
     });
   });
 });

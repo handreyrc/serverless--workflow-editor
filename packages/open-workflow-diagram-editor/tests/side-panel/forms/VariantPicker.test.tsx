@@ -22,7 +22,10 @@ import { FormProvider, useForm, type UseFormReturn } from "react-hook-form";
 import { I18nProvider } from "@openworkflowspec/i18n";
 import { en } from "../../../src/i18n/locales/en";
 import { VariantPicker } from "../../../src/side-panel/forms/VariantPicker";
-import { TaskFormContext } from "../../../src/side-panel/forms/taskFormContext";
+import {
+  TaskFormContext,
+  VariantSnapshotsContext,
+} from "../../../src/side-panel/forms/taskFormContext";
 import type { OneOfField, StringField } from "../../../src/core/schemaToFormFields";
 
 vi.mock("../../../src/side-panel/forms/ui/combobox", async () => {
@@ -74,6 +77,7 @@ function PickerHarness({
   const form = useForm<Record<string, unknown>>({
     defaultValues: { choice: { onlyA: "a", shared: "s" } },
   });
+  const [snapshots] = React.useState(() => new Map());
   React.useLayoutEffect(() => {
     formRef.current = form;
     for (const path of [ONLY_A, ONLY_B, SHARED]) {
@@ -84,9 +88,11 @@ function PickerHarness({
   return (
     <I18nProvider locale="en" dictionaries={{ en }}>
       <TaskFormContext.Provider value={{ isReadOnly: false, siblingTaskNames: [], taskData: {} }}>
-        <FormProvider {...form}>
-          <VariantPicker field={choiceField} />
-        </FormProvider>
+        <VariantSnapshotsContext.Provider value={snapshots}>
+          <FormProvider {...form}>
+            <VariantPicker field={choiceField} />
+          </FormProvider>
+        </VariantSnapshotsContext.Provider>
       </TaskFormContext.Provider>
     </I18nProvider>
   );

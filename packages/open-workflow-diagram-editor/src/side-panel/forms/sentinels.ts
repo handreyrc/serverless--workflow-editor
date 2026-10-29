@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { flattenTask } from "@/core/taskDraft";
+
 // Variant sentinels — where a one-of records its selected variant in the form values.
 
 export const SENTINEL_KEY = "__oneof__";
@@ -24,4 +26,39 @@ export const SENTINEL_SUFFIX = `.${SENTINEL_SELF_KEY}`;
 /** Where the one-of at `path` records its selected variant's label. */
 export function sentinelPath(path: string): string {
   return `${SENTINEL_PREFIX}${path}${SENTINEL_SUFFIX}`;
+}
+
+/** The selected variant's label of every one-of in `values`, keyed by path. */
+export function readSentinels(values: Record<string, unknown>): Record<string, string> {
+  const labels: Record<string, string> = {};
+  for (const [path, value] of Object.entries(
+    flattenTask({ [SENTINEL_KEY]: values[SENTINEL_KEY] }),
+  )) {
+    if (
+      path.startsWith(SENTINEL_PREFIX) &&
+      path.endsWith(SENTINEL_SUFFIX) &&
+      typeof value === "string"
+    ) {
+      labels[path.slice(SENTINEL_PREFIX.length, -SENTINEL_SUFFIX.length)] = value;
+    }
+  }
+  return labels;
+}
+
+// Inner-object text for value-map enums, persisted in form values across drills
+export const INNER_TEXT_KEY = "__innertext__";
+
+/** Returns the path where inner object text is stored */
+export function innerTextPath(path: string): string {
+  return `${INNER_TEXT_KEY}.${path}`;
+}
+
+/** True for internal form values (not part of task data) */
+export function isReservedPath(path: string): boolean {
+  return (
+    path === SENTINEL_KEY ||
+    path.startsWith(SENTINEL_PREFIX) ||
+    path === INNER_TEXT_KEY ||
+    path.startsWith(`${INNER_TEXT_KEY}.`)
+  );
 }

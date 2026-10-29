@@ -24,7 +24,7 @@ import {
   type OneOfVariant,
 } from "../../core/schemaToFormFields";
 import { flattenTask, setNestedPath } from "../../core/taskDraft";
-import { SENTINEL_PREFIX, SENTINEL_SELF_KEY, sentinelPath } from "./sentinels";
+import { SENTINEL_SELF_KEY, isReservedPath, sentinelPath } from "./sentinels";
 
 // ---------------------------------------------------------------------------
 // TaskFormContext
@@ -111,11 +111,20 @@ export function useTaskFormContext(): TaskFormContextType {
 /**
  * Each one-of's saved values per variant, restored when the user switches back. Keyed by
  * `variantSnapshotKey`, then by variant index. Provided by `TaskForm` rather than held by the row,
- * because drilling into a level unmounts the rows above it. `null` outside a `TaskForm`.
+ * because drilling into a level unmounts the rows above it.
  */
 export type VariantSnapshots = Map<string, Map<number, Record<string, unknown>>>;
 
 export const VariantSnapshotsContext = React.createContext<VariantSnapshots | null>(null);
+
+/** The snapshots of the enclosing `TaskForm`, which owns them. */
+export function useVariantSnapshots(): VariantSnapshots {
+  const snapshots = React.useContext(VariantSnapshotsContext);
+  if (!snapshots) {
+    throw new Error("useVariantSnapshots must be used within a TaskForm");
+  }
+  return snapshots;
+}
 
 // ---------------------------------------------------------------------------
 // Read-only field filtering
@@ -329,7 +338,7 @@ export function padRemovedPaths(
   const newFlat = flattenTask(newTask, "", wholeValuePaths);
   const newPaths = Object.keys(newFlat);
   for (const path of Object.keys(oldFlat)) {
-    if (path in newFlat || path.startsWith(SENTINEL_PREFIX)) continue;
+    if (path in newFlat || isReservedPath(path)) continue;
     const conflicts = newPaths.some((np) => path.startsWith(np + ".") || np.startsWith(path + "."));
     if (!conflicts) {
       setNestedPath(resetVals, path, "");
@@ -434,8 +443,13 @@ export function filterReadOnlyFields(
   });
 }
 
-/** Writes `label` at a dot-notation path */
-function setNestedSentinel(result: Record<string, unknown>, path: string, label: string): void {
+/** Writes `label` at a dot-notation path, unless `overwrite` is false and one is already there */
+function setNestedSentinel(
+  result: Record<string, unknown>,
+  path: string,
+  label: string,
+  overwrite: boolean,
+): void {
   const parts = [...path.split("."), SENTINEL_SELF_KEY];
   let obj = result;
   for (let i = 0; i < parts.length - 1; i++) {
@@ -445,18 +459,26 @@ function setNestedSentinel(result: Record<string, unknown>, path: string, label:
     }
     obj = obj[part] as Record<string, unknown>;
   }
-  obj[parts[parts.length - 1]!] = label;
+  const key = parts[parts.length - 1]!;
+  if (overwrite || obj[key] === undefined) obj[key] = label;
 }
 
+/**
+ * Every one-of gets a default, including those inside a variant the task has not committed:
+ * an excursion mounts that variant's pickers, and a sentinel with no default would stay dirty
+ * once they unmount. The committed shape writes with `overwrite`, so it wins a path that two
+ * variants both declare.
+ */
 function collectSentinelDefaults(
   fields: FormFieldDescriptor[],
   taskData: Record<string, unknown>,
   currentSentinels: Record<string, string>,
   result: Record<string, unknown>,
+  overwrite = true,
 ): void {
   for (const f of fields) {
     if (f.kind === "object" || f.kind === "section") {
-      collectSentinelDefaults(f.children, taskData, currentSentinels, result);
+      collectSentinelDefaults(f.children, taskData, currentSentinels, result, overwrite);
     } else if (f.kind === "one-of") {
       const dataAtPath = f.path === ROOT_ONE_OF_PATH ? taskData : getNestedValue(taskData, f.path);
       const idx = f.variants.findIndex((v) => v.matchesData(dataAtPath));
@@ -472,18 +494,22 @@ function collectSentinelDefaults(
         selectedIdx = fallbackIdx >= 0 ? fallbackIdx : 0;
       }
       const selected = f.variants[selectedIdx];
-      setNestedSentinel(result, f.path, selected?.label ?? "");
-      // Only the selected variant's fields are mounted, so only its nested one-ofs
-      // have a sentinel to match
+      setNestedSentinel(result, f.path, selected?.label ?? "", overwrite);
       if (selected) {
-        collectSentinelDefaults(selected.fields, taskData, currentSentinels, result);
+        collectSentinelDefaults(selected.fields, taskData, currentSentinels, result, overwrite);
+      }
+      for (const variant of f.variants) {
+        if (variant !== selected) {
+          collectSentinelDefaults(variant.fields, taskData, currentSentinels, result, false);
+        }
       }
     }
   }
 }
 
 /**
- * The sentinel value for every one-of on screen: the variant the committed data matches, else
+ * The sentinel value for every one-of the task's fields can show, inside uncommitted variants
+ * too (see `collectSentinelDefaults`): the variant the committed data matches, else
  * `currentSentinels`' label for it, else the first variant. Nested under `SENTINEL_KEY` in the
  * form's default values.
  */

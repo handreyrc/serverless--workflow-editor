@@ -18,11 +18,12 @@ import * as React from "react";
 import { ChevronRight } from "lucide-react";
 import { get, useFormContext, useFormState, useWatch } from "react-hook-form";
 import { useI18n } from "@openworkflowspec/i18n";
-import { changedPaths, countChangedUnder, countFieldErrors, hasDraftValue } from "../draftChanges";
+import { countChangedUnder, countFieldErrors, hasDraftValue } from "./rowCounts";
+import { useDraftChanges } from "../../EditSession";
 import { isObjectNotArray } from "../../../core/utils";
 import { drillLabel, type DrillTarget } from "./drill";
 import { useDrill } from "./DrillContext";
-import { collectJsonPaths, filterReadOnlyFields, useTaskFormContext } from "../taskFormContext";
+import { filterReadOnlyFields, useTaskFormContext } from "../taskFormContext";
 import { countLevelErrorsUnder, useTaskValidation } from "../validation";
 import { COMMON_FIELDS_PATH } from "@/core/schemaToFormFields";
 
@@ -52,7 +53,7 @@ export function DrillRow({
   const { t } = useI18n();
   const { open } = useDrill();
   const { isReadOnly, taskData } = useTaskFormContext();
-  const { control, getValues } = useFormContext<Record<string, unknown>>();
+  const { control } = useFormContext<Record<string, unknown>>();
 
   const variantValue = useWatch({
     control,
@@ -67,27 +68,11 @@ export function DrillRow({
         : field.children.map((child) => child.path),
     [field],
   );
-  const jsonPaths = React.useMemo(
-    () =>
-      collectJsonPaths(
-        field.kind === "map" ? [] : field.kind === "one-of" ? [field] : field.children,
-      ),
-    [field],
-  );
 
   /** Only re-renders when values change, not on every keystroke */
   const values = useWatch({ control, name: childPaths as never }) as unknown as unknown[];
-  const { dirtyFields, errors, defaultValues } = useFormState({
-    control,
-    name: childPaths as never,
-  });
-
-  const changed = changedPaths(
-    dirtyFields,
-    getValues(),
-    defaultValues as Record<string, unknown> | undefined,
-    jsonPaths,
-  );
+  const { errors } = useFormState({ control, name: childPaths as never });
+  const { paths: changed } = useDraftChanges();
   const changedCount = childPaths.reduce((sum, path) => sum + countChangedUnder(changed, path), 0);
   const { levelErrors } = useTaskValidation().taskValidation;
   // The virtual "Common fields" section has no real path: its children keep their task paths.

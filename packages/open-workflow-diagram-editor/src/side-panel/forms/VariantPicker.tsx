@@ -21,12 +21,10 @@ import type { OneOfField } from "../../core/schemaToFormFields";
 import {
   collectLeafKinds,
   getNestedValue,
-  selectedVariantIndex,
   useSelectedVariant,
   useTaskFormContext,
-  VariantSnapshotsContext,
+  useVariantSnapshots,
   variantSnapshotKey,
-  type VariantSnapshots,
 } from "./taskFormContext";
 import {
   Combobox,
@@ -50,15 +48,13 @@ export function VariantPicker({
   compact?: boolean;
 }) {
   const { t } = useI18n();
-  const { isReadOnly, taskData, revalidateIfAttempted } = useTaskFormContext();
+  const { isReadOnly, revalidateIfAttempted } = useTaskFormContext();
   const { getValues, setValue, register, clearErrors } = useFormContext<Record<string, unknown>>();
   const sentinelPath = toSentinelPath(field.path);
   const selectedVariantIdx = useSelectedVariant(field);
 
   // Variant snapshots: owned by TaskForm (survives drill unmount), cleared on task change.
-  const sharedSnapshots = React.useContext(VariantSnapshotsContext);
-  const [ownSnapshots] = React.useState<VariantSnapshots>(() => new Map());
-  const variantSnapshots = sharedSnapshots ?? ownSnapshots;
+  const variantSnapshots = useVariantSnapshots();
   const variantSnapshotsForField = React.useCallback(() => {
     const key = variantSnapshotKey(field);
     const saved = variantSnapshots.get(key) ?? new Map<number, Record<string, unknown>>();
@@ -67,10 +63,6 @@ export function VariantPicker({
   }, [field, variantSnapshots]);
 
   const sentinelRef = register(sentinelPath as never);
-
-  // Sentinel default: the committed variant label. Switching back to it clears dirty.
-  const committedVariantLabel =
-    field.variants[selectedVariantIndex(field, undefined, taskData)]?.label ?? "";
 
   const handleVariantChange = React.useCallback(
     (newIdx: number) => {
@@ -103,7 +95,11 @@ export function VariantPicker({
         : new Map<string, string>();
 
       if (saved) {
-        for (const [path, value] of Object.entries(saved)) {
+        // Restore deepest paths first to handle overlapping paths correctly.
+        const deepestFirst = Object.entries(saved).sort(
+          ([a], [b]) => b.split(".").length - a.split(".").length,
+        );
+        for (const [path, value] of deepestFirst) {
           setValue(path, value, { shouldDirty: true });
         }
       } else if (newVariant) {
@@ -178,9 +174,10 @@ export function VariantPicker({
 
   return (
     <>
-      {/* Hidden sentinel input — keeps the variant selection dirty state in RHF.
+      {/* Hidden sentinel input — keeps the variant selection dirty state in RHF. Its default
+          comes from the form reset (`computeSentinelDefaults`), which seeds every one-of.
           Only rendered in edit mode; read-only forms never switch variants. */}
-      {!isReadOnly && <input {...sentinelRef} type="hidden" defaultValue={committedVariantLabel} />}
+      {!isReadOnly && <input {...sentinelRef} type="hidden" />}
       {compact ? (
         picker
       ) : (

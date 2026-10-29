@@ -141,8 +141,9 @@ describe("TaskForm one-of levels", () => {
     await user.click(screen.getByRole("button", { name: "Basic Authentication Policy" }));
     await leaveLevel(user);
 
+    // The switch is the one change.
     expect(row("Authentication")).toHaveAccessibleName(
-      "Open Authentication, Basic Authentication Policy",
+      "Open Authentication, Basic Authentication Policy, 1 changed",
     );
   });
 
@@ -165,7 +166,7 @@ describe("TaskForm one-of levels", () => {
 
     await leaveLevel(user);
     expect(row("Authentication")).toHaveAccessibleName(
-      "Open Authentication, O Auth2 Authentication Policy",
+      "Open Authentication, O Auth2 Authentication Policy, 1 changed",
     );
   });
 });

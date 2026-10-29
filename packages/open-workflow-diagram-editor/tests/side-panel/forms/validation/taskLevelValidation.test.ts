@@ -14,19 +14,14 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { UseFormReturn } from "react-hook-form";
 import type { FormFieldDescriptor } from "../../../../src/core/schemaToFormFields";
 import {
   validateTaskForm,
   collectSchemaErrorPaths,
 } from "../../../../src/side-panel/forms/validation/taskLevelValidation";
-import { getInnerObjectForPath } from "../../../../src/side-panel/forms/customFields/EnumControl";
-
-vi.mock("../../../../src/side-panel/forms/customFields/EnumControl", () => ({
-  getInnerObjectForPath: vi.fn().mockReturnValue({}),
-  getValueMapInnerObject: vi.fn().mockReturnValue({}),
-}));
+import { INNER_TEXT_KEY } from "../../../../src/side-panel/forms/sentinels";
 
 describe("collectSchemaErrorPaths", () => {
   it("returns empty array for empty or undefined errors", () => {
@@ -95,10 +90,6 @@ describe("validateTaskForm", () => {
       },
     },
   ];
-
-  beforeEach(() => {
-    vi.mocked(getInnerObjectForPath).mockReturnValue({});
-  });
 
   function createMockForm(
     values: Record<string, unknown>,
@@ -213,10 +204,9 @@ describe("validateTaskForm", () => {
   });
 
   it("registers an unparseable valueMap payload as an error and non-bypassable", () => {
-    vi.mocked(getInnerObjectForPath).mockReturnValue(null);
-
     const { form, setError } = createMockForm({
       catch: { retry: { backoff: "exponential" } },
+      [INNER_TEXT_KEY]: { catch: { retry: { backoff: "[not, an, object]" } } },
     });
     const result = validateTaskForm("tryTask", form, valueMapFields, {
       t: (key) => (key === "sidebar.form.innerObject.parseError" ? "Parse error" : key),

@@ -453,3 +453,56 @@ describe("resolveTaskId — Catch node delegates to parent container id", () => 
     expect(catchNode.parentId).toBe(TRY_CATCH_CONTAINER_ID);
   });
 });
+
+describe("try task — content format switch with the node selected", () => {
+  /** The same model re-loaded as JSON (a host `setContent`) while the try node stays selected. */
+  function FormatSwitchTryFooter({ commitWorkflow }: { commitWorkflow: () => void }) {
+    const [model] = React.useState(() => parseFixture(TRY_CATCH_BACKOFF_RICH_WORKFLOW));
+    const [contentFormat, setContentFormat] = React.useState<"yaml" | "json">("yaml");
+    const node = nodeAt(model, TRY_NODE_ID);
+    const ctx = createMockContextValue({ isReadOnly: false, contentFormat, model, commitWorkflow });
+    return (
+      <ReactFlowProvider>
+        <DiagramEditorContext.Provider value={ctx}>
+          <I18nProvider locale="en" dictionaries={{ en }}>
+            <SidebarProvider defaultOpen={true}>
+              <EditSessionProvider>
+                <button type="button" onClick={() => setContentFormat("json")}>
+                  reload as JSON
+                </button>
+                <TaskForm nodeType={node.type!} task={node.data.task!} nodeId={TRY_NODE_ID} />
+                <EditFormFooter node={node} />
+              </EditSessionProvider>
+            </SidebarProvider>
+          </I18nProvider>
+        </DiagramEditorContext.Provider>
+      </ReactFlowProvider>
+    );
+  }
+
+  it("re-serialises the backoff payload as JSON, so an edit to it applies", async () => {
+    const commitWorkflow = vi.fn();
+    const user = userEvent.setup();
+    rtlRender(<FormatSwitchTryFooter commitWorkflow={commitWorkflow} />);
+    await act(async () => {});
+    await openRetry(user);
+
+    await user.click(screen.getByRole("button", { name: "reload as JSON" }));
+
+    const textarea = getBackoffTextarea();
+    expect(JSON.parse(textarea.value)).toEqual({ rate: 2, max: { seconds: 30 } });
+
+    await user.clear(textarea);
+    await user.type(textarea, '{{"rate": 3}');
+    await user.click(applyButton());
+
+    expect(commitWorkflow).toHaveBeenCalledTimes(1);
+    const committed = commitWorkflow.mock.calls[0]![0] as Specification.Workflow;
+    const task = (committed.do[0] as Record<string, unknown>)["tryGetPet"] as Record<
+      string,
+      unknown
+    >;
+    const retry = (task["catch"] as Record<string, unknown>)["retry"] as Record<string, unknown>;
+    expect(retry["backoff"]).toEqual({ exponential: { rate: 3 } });
+  });
+});

@@ -15,22 +15,32 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
+import * as React from "react";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEditSession } from "../../src/side-panel/EditSession";
 import { NavigationGuardDialog } from "../../src/side-panel/NavigationGuardDialog";
 import { renderWithProviders } from "../test-utils/render-helpers";
 import { en } from "../../src/i18n/locales/en";
+import { getFormFieldsForNodeType } from "../../src/core";
+import { PRESENCE_KEY_SELECTORS_WORKFLOW } from "../fixtures/workflows";
+import { nodeAt, parseFixture } from "../test-utils";
+
+// The guard measures the draft against the task the form was reset to, so it needs one.
+const task = nodeAt(parseFixture(PRESENCE_KEY_SELECTORS_WORKFLOW), "/do/validateInput").data
+  .task as Record<string, unknown>;
+const fields = getFormFieldsForNodeType("set");
 
 function GuardHarness({ proceed }: { proceed: () => void }) {
-  const { form, requestNavigation } = useEditSession();
+  const { form, requestNavigation, resetDraft } = useEditSession();
+  React.useEffect(() => resetDraft(fields, task), [resetDraft]);
 
   return (
     <>
       <button
         type="button"
         onClick={() => {
-          form.setValue("anyField", "edited", { shouldDirty: true });
+          form.setValue("set.checked", false as never, { shouldDirty: true });
           requestNavigation(proceed);
         }}
       >
@@ -38,6 +48,18 @@ function GuardHarness({ proceed }: { proceed: () => void }) {
       </button>
       <button type="button" onClick={() => requestNavigation(proceed)}>
         Navigate
+      </button>
+      {/* Reset, edit and navigate before any render: `reset` replaces `dirtyFields`, so a guard
+          reading the last render's `formState` would miss the edit. */}
+      <button
+        type="button"
+        onClick={() => {
+          resetDraft(fields, task);
+          form.setValue("set.checked", false as never, { shouldDirty: true });
+          requestNavigation(proceed);
+        }}
+      >
+        Reset then navigate with unsaved edits
       </button>
     </>
   );
@@ -65,6 +87,17 @@ const navigate = (user: ReturnType<typeof userEvent.setup>, dirty = false) =>
   );
 
 describe("NavigationGuardDialog", () => {
+  it("sees an edit made in the same handler as a reset", async () => {
+    const { proceed, user } = renderDialog();
+
+    await user.click(
+      screen.getByRole("button", { name: "Reset then navigate with unsaved edits" }),
+    );
+
+    expect(dialog()).toBeInTheDocument();
+    expect(proceed).not.toHaveBeenCalled();
+  });
+
   it("does not render when draft is clean", async () => {
     const { proceed, user } = renderDialog();
 

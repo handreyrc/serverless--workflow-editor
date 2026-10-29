@@ -27,3 +27,4 @@ export {
   applyAnywayButton,
   clickApply,
 } from "./edit-helpers";
+export { panel, renderTaskPanel } from "./panel-helpers";

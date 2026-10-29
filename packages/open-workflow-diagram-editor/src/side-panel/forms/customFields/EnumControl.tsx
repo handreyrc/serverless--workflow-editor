@@ -15,8 +15,7 @@
  */
 
 import * as React from "react";
-import { Controller, useFormContext, useFormState } from "react-hook-form";
-import { dump, load } from "js-yaml";
+import { Controller, useFormContext, useFormState, useWatch } from "react-hook-form";
 import { useI18n } from "@openworkflowspec/i18n";
 import {
   Combobox,
@@ -25,22 +24,16 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "../ui/combobox";
-import type { EnumField, ContentFormat } from "../../../core/schemaToFormFields";
+import type { EnumField } from "../../../core/schemaToFormFields";
 import { useTaskFormContext, getNestedValue } from "../taskFormContext";
 import { useFieldError, FieldWithError } from "./fieldHelpers";
 import { Textarea } from "../ui/textarea";
+import { innerTextPath } from "../sentinels";
+import { deriveInnerObject, serializeInnerObject } from "./innerObjectText";
 
 // ---------------------------------------------------------------------------
-// Module-level store for inner object text
+// Inner-object text stash
 // ---------------------------------------------------------------------------
-
-/**
- * Maps a field path to the current serialised text of its inner object.
- * Allows EditFormFooter's handleApply to read the inner content without going
- * through RHF (which would require a nested Controller that interferes with
- * dirty-field tracking).
- */
-const innerObjectTextStore = new Map<string, string>();
 
 /**
  * Inner-object texts stashed per option, restored when switching back to that option. Keyed by
@@ -63,48 +56,6 @@ function stashFor(defaultValues: object | undefined): Map<string, string> {
 
 const stashKey = (path: string, optionKey: string) => `${path}\u0000${optionKey}`;
 
-/**
- * Parses the inner object text stored for a given field path.
- *
- * Returns:
- *  - `{}` when the path is not in the store or the text is empty (intentional empty payload).
- *  - A parsed `Record<string, unknown>` when the text is valid and produces a plain object.
- *  - `null` when the text is non-empty but fails to parse or produces a non-object value
- *    (e.g. malformed JSON/YAML, a bare scalar). Callers must not commit a `null` result.
- */
-export function getInnerObjectForPath(
-  path: string,
-  format: ContentFormat,
-): Record<string, unknown> | null {
-  const text = innerObjectTextStore.get(path);
-  if (!text || text.trim() === "") return {};
-  try {
-    const parsed = format === "json" ? JSON.parse(text) : (load(text) as unknown);
-    if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
-    }
-    // Valid parse but not a plain object (e.g. array, scalar) — treat as failure.
-    return null;
-  } catch {
-    // Malformed input — propagate failure explicitly.
-    return null;
-  }
-}
-
-/**
- * Inner object payload for a valueMap-backed enum selection.
- * Returns `{}` when no key is selected or the field has no inner object format,
- * and `null` when the stored payload text cannot be parsed.
- */
-export function getValueMapInnerObject(
-  field: EnumField,
-  key: string,
-): Record<string, unknown> | null {
-  return key && field.innerObjectFormat !== undefined
-    ? getInnerObjectForPath(field.path, field.innerObjectFormat)
-    : {};
-}
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -118,32 +69,6 @@ function deriveSelectedKey(value: unknown, hasValueMap: boolean): string {
   return (value as string | undefined) ?? "";
 }
 
-/** Extracts the inner object from a discriminator value. */
-function deriveInnerObject(value: unknown): Record<string, unknown> {
-  if (value !== null && typeof value === "object") {
-    const obj = value as Record<string, unknown>;
-    const key = Object.keys(obj)[0];
-    if (key !== undefined) {
-      const inner = obj[key];
-      return inner !== null && typeof inner === "object" && !Array.isArray(inner)
-        ? (inner as Record<string, unknown>)
-        : {};
-    }
-  }
-  return {};
-}
-
-function serializeInnerObject(obj: Record<string, unknown>, format: "yaml" | "json"): string {
-  if (Object.keys(obj).length === 0) return "";
-  try {
-    return format === "json"
-      ? JSON.stringify(obj, null, 2)
-      : dump(obj, { indent: 2, lineWidth: -1 }).trimEnd();
-  } catch {
-    return "";
-  }
-}
-
 // ---------------------------------------------------------------------------
 // EnumControl — combobox selector backed by react-hook-form
 // ---------------------------------------------------------------------------
@@ -154,7 +79,7 @@ export type EnumControlProps = {
 };
 
 export function EnumControl({ field, id }: EnumControlProps) {
-  const { control, getValues } = useFormContext<Record<string, unknown>>();
+  const { control, getValues, setValue } = useFormContext<Record<string, unknown>>();
   const { isReadOnly, taskData, validateField } = useTaskFormContext();
   const { t } = useI18n();
   const errorMessage = useFieldError(field.path);
@@ -170,23 +95,23 @@ export function EnumControl({ field, id }: EnumControlProps) {
     return deriveSelectedKey(getNestedValue(taskData, field.path), hasValueMap);
   });
 
-  // Local inner-object text state.  Only populated when innerObjectFormat is set.
-  const [innerText, setInnerText] = React.useState<string>(() => {
-    if (!hasInnerObject) return "";
+  // Inner text stored in form values, survives drills. Falls back to committed payload.
+  const textPath = innerTextPath(field.path);
+  const watchedText = useWatch({ control, name: textPath as never }) as unknown;
+  const innerFormat = field.innerObjectFormat ?? "yaml";
+  const innerText = !hasInnerObject
+    ? ""
+    : typeof watchedText === "string"
+      ? watchedText
+      : serializeInnerObject(
+          deriveInnerObject(
+            (getValues(field.path as never) as unknown) ?? getNestedValue(taskData, field.path),
+          ),
+          innerFormat,
+        );
+  const setInnerText = (text: string) =>
+    setValue(textPath as never, text as never, { shouldDirty: true });
 
-    const rhfValue = getValues(field.path as never) as unknown;
-    if (typeof rhfValue === "string" && rhfValue !== "") {
-      const stored = innerObjectTextStore.get(field.path);
-      if (stored !== undefined) return stored;
-    }
-
-    const fromValue =
-      rhfValue !== undefined && rhfValue !== null ? rhfValue : getNestedValue(taskData, field.path);
-    const innerObj = deriveInnerObject(fromValue);
-    const text = serializeInnerObject(innerObj, field.innerObjectFormat ?? "yaml");
-    innerObjectTextStore.set(field.path, text);
-    return text;
-  });
 
   // Re-sync when the form resets (apply, cancel, node switch, undo/redo).
   // defaultValues identity changes on every form.reset() call.
@@ -201,19 +126,7 @@ export function EnumControl({ field, id }: EnumControlProps) {
       field.path,
     );
     setSelectedKey(deriveSelectedKey(fromDefault, hasValueMap));
-    if (hasInnerObject) {
-      const innerObj = deriveInnerObject(fromDefault);
-      const text = serializeInnerObject(innerObj, field.innerObjectFormat ?? "yaml");
-      setInnerText(text);
-      innerObjectTextStore.set(field.path, text);
-    }
   }
-
-  // Keep the store up-to-date whenever innerText changes.
-  React.useEffect(() => {
-    if (!hasInnerObject) return;
-    innerObjectTextStore.set(field.path, innerText);
-  }, [field.path, hasInnerObject, innerText]);
 
   return (
     <Controller
@@ -249,10 +162,7 @@ export function EnumControl({ field, id }: EnumControlProps) {
               if (selectedKey) {
                 stash.set(stashKey(field.path, selectedKey), innerText);
               }
-              const restored = stash.get(stashKey(field.path, val ?? ""));
-              const newText = restored ?? "";
-              setInnerText(newText);
-              innerObjectTextStore.set(field.path, newText);
+              setInnerText(stash.get(stashKey(field.path, val ?? "")) ?? "");
             }
             setSelectedKey(val ?? "");
           }
@@ -262,7 +172,6 @@ export function EnumControl({ field, id }: EnumControlProps) {
         function handleInnerTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
           const text = e.target.value;
           setInnerText(text);
-          innerObjectTextStore.set(field.path, text);
           // Ensure the Controller is dirty when only the inner text changes.
           // Re-writing the same string key triggers RHF's dirty comparison:
           // the string differs from the default (which is an object), so the

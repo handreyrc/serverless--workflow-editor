@@ -17,7 +17,7 @@
 import type { UseFormReturn } from "react-hook-form";
 import type { FormFieldDescriptor } from "@/core/schemaToFormFields";
 import { collectValueMapFields, getNestedValue } from "../taskFormContext";
-import { getInnerObjectForPath } from "../customFields/EnumControl";
+import { getValueMapInnerObject } from "../customFields/innerObjectText";
 import { collectTaskErrors } from "./collectSchemaFieldErrors";
 
 /**
@@ -96,7 +96,7 @@ export function validateTaskForm(
   for (const field of collectValueMapFields(fields)) {
     const live = getNestedValue(formValues, field.path);
     if (typeof live === "string" && field.innerObjectFormat !== undefined) {
-      if (getInnerObjectForPath(field.path, field.innerObjectFormat) === null) {
+      if (getValueMapInnerObject(field, live, formValues) === null) {
         hasUnparseableValueMapPayload = true;
         fieldErrors[field.path] = options.t
           ? options.t("sidebar.form.innerObject.parseError")

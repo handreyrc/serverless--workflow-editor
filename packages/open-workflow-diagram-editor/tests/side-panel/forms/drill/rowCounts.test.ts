@@ -16,30 +16,10 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  changedPaths,
   countChangedUnder,
   countFieldErrors,
   hasDraftValue,
-} from "../../../src/side-panel/forms/draftChanges";
-
-describe("changedPaths", () => {
-  it("keeps real changes, drops sentinels and empty-to-empty phantoms", () => {
-    const dirty = {
-      with: { method: true, body: true },
-      __oneof__: { with: { __self__: true } },
-    };
-    const values = { with: { method: "get", body: "" } };
-    const defaults = { with: { method: "post" } };
-    expect(changedPaths(dirty, values, defaults)).toEqual(["with.method"]);
-  });
-
-  it("counts a JSON value as one change however many keys it edits", () => {
-    const dirty = { output: { as: { id: true, name: true } } };
-    const values = { output: { as: { name: "x" } } };
-    const defaults = { output: { as: { id: "y" } } };
-    expect(changedPaths(dirty, values, defaults, new Set(["output.as"]))).toEqual(["output.as"]);
-  });
-});
+} from "../../../../src/side-panel/forms/drill/rowCounts";
 
 describe("countChangedUnder", () => {
   const paths = ["a.output.x", "a.output", "a.outputs.y", "b"];

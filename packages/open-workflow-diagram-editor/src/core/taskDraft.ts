@@ -16,7 +16,7 @@
 
 import { ROOT_ONE_OF_PATH } from "./schemaToFormFields";
 import { getTaskTypeKey } from "./taskTypes";
-import { isSafeKey } from "./utils";
+import { isObjectNotArray, isSafeKey } from "./utils";
 
 /**
  * Flattens a task object into a dot-notation record (`with.endpoint.uri`), the shape the panel's
@@ -35,7 +35,7 @@ export function flattenTask(
   }
   if (typeof value === "object") {
     const obj = value as Record<string, unknown>;
-    let result: Record<string, unknown> = {};
+    const result: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(obj)) {
       const fullKey = prefix ? `${prefix}.${k}` : k;
       if (Array.isArray(v) || wholeValuePaths.has(fullKey)) {
@@ -48,7 +48,7 @@ export function flattenTask(
         if (Object.keys(nested).length === 0 && Object.keys(v as object).length > 0) {
           result[fullKey] = v;
         } else {
-          result = { ...result, ...nested };
+          Object.assign(result, nested);
         }
       } else {
         result[fullKey] = v;
@@ -129,6 +129,28 @@ function pruneEmptyLeaves<T>(value: T): T {
   return result as T;
 }
 
+export type ApplyDirtyOptions = {
+  /** Paths dirty solely because the variant selector (sentinel) changed. */
+  sentinelPaths?: Set<string>;
+  /**
+   * For each sentinel-dirty path, the constWrites of the selected variant
+   * (hidden discriminator properties that must be written into the model).
+   */
+  sentinelConstWrites?: Map<string, Record<string, unknown>>;
+  /**
+   * For each sentinel-dirty path, the model paths that belong exclusively to
+   * the previously active variant(s) and must be removed from the result.
+   */
+  sentinelStalePaths?: Map<string, string[]>;
+  /**
+   * Paths holding a list the user edits through an `ordered-map`. Only these get their
+   * empty leaves pruned, because clearing a control is how you remove a key there.
+   */
+  formListPaths?: Set<string>;
+  /** Presence key of each selected variant on screen (e.g. run -> container). */
+  sentinelPresenceKeys?: Map<string, string>;
+};
+
 /**
  * Produces an updated task by applying only the dirty form fields onto a deep
  * clone of the original task.
@@ -140,27 +162,20 @@ function pruneEmptyLeaves<T>(value: T): T {
  *                     react-hook-form's `dirtyFields` (top-level keys only is
  *                     sufficient because `KeyValueMapField` registers individual
  *                     leaf paths under the map prefix).
+ * @param options    - What the variant switches on screen add to the merge; see
+ *                     {@link ApplyDirtyOptions}.
  */
 export function applyDirtyValues(
   original: Record<string, unknown>,
   allValues: Record<string, unknown>,
   dirtyPaths: Set<string>,
-
-  // Paths dirty solely because the variant selector (sentinel) changed.
-  sentinelPaths: Set<string> = new Set(),
-
-  // For each sentinel-dirty path, the constWrites of the selected variant
-  // (hidden discriminator properties that must be written into the model).
-  sentinelConstWrites: Map<string, Record<string, unknown>> = new Map(),
-
-  // For each sentinel-dirty path, the model paths that belong exclusively to
-  // the previously active variant(s) and must be removed from the result.
-  sentinelStalePaths: Map<string, string[]> = new Map(),
-  // Paths holding a list the user edits through an `ordered-map`
-  // Only these get their empty leaves pruned, because clearing a control is how you remove a key there.
-  formListPaths: Set<string> = new Set(),
-  // Presence key of each selected variant on screen (e.g. run -> container)
-  sentinelPresenceKeys: Map<string, string> = new Map(),
+  {
+    sentinelPaths = new Set(),
+    sentinelConstWrites = new Map(),
+    sentinelStalePaths = new Map(),
+    formListPaths = new Set(),
+    sentinelPresenceKeys = new Map(),
+  }: ApplyDirtyOptions = {},
 ): Record<string, unknown> {
   // Deep clone the original so we never mutate the store value.
   const result = deepClone(original);
@@ -225,6 +240,14 @@ export function applyDirtyValues(
       if (getPath(result, keyParts) === undefined) setPath(result, keyParts, {});
     } else if (!suppliedByEdit) {
       deletePath(result, sentinelPath.split("."), { prune: false });
+    } else if (
+      sentinelPath !== ROOT_ONE_OF_PATH &&
+      !wroteOwnValue(sentinelPath, allValues, dirtyPaths) &&
+      [...dirtyPaths].some((p) => p.startsWith(prefix)) &&
+      !isObjectNotArray(getPath(result, baseParts))
+    ) {
+      // New option is empty - commit the empty container. Direct user values override stale fields
+      setPath(result, baseParts, {});
     }
   }
 
@@ -267,6 +290,16 @@ function isDirtyPath(dotPath: string, dirtyPaths: Set<string>): boolean {
     if (dirty.startsWith(dotPath + ".")) return true;
   }
   return false;
+}
+
+// True when the edit wrote a value (not clearing a field) at `path` itself (not nested children).
+function wroteOwnValue(
+  path: string,
+  allValues: Record<string, unknown>,
+  dirtyPaths: Set<string>,
+): boolean {
+  const value = allValues[path];
+  return dirtyPaths.has(path) && value !== undefined && value !== null && value !== "";
 }
 
 // The value at a path within `obj`, or `undefined` when any step is not an object.

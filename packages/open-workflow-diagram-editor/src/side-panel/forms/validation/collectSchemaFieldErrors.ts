@@ -18,7 +18,7 @@ import type { FormFieldDescriptor } from "@/core/schemaToFormFields";
 import { flattenTask } from "@/core/taskDraft";
 import { SENTINEL_KEY } from "../sentinels";
 import { collectValueMapFields, getNestedValue } from "../taskFormContext";
-import { getInnerObjectForPath } from "../customFields/EnumControl";
+import { getValueMapInnerObject } from "../customFields/innerObjectText";
 import { validateTaskData } from "./schemaValidator";
 import { prepareValuesForValidation, extractFieldErrors } from "./fieldErrorMapper";
 import { buildActiveFormView } from "./activeFormView";
@@ -65,7 +65,7 @@ export function collectSchemaFieldErrors(
     if (scopedPath && field.path !== scopedPath) continue;
     const live = getNestedValue(formValues, field.path);
     if (typeof live === "string" && field.innerObjectFormat !== undefined) {
-      if (getInnerObjectForPath(field.path, field.innerObjectFormat) === null) {
+      if (getValueMapInnerObject(field, live, formValues) === null) {
         fieldErrors[field.path] = "Must be a valid YAML/JSON object";
       }
     }
